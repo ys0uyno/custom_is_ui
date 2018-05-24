@@ -6,6 +6,56 @@
 
 #define MAX_LOADSTRING 100
 
+HMODULE g_welcome_hmodule;
+typedef void (*BEGWELCOMEHOOK)(HWND);
+typedef void (*ENDWELCOMEHOOK)();
+
+HMODULE g_statusex_hmodule;
+typedef void (*BEGSTATUSEXHOOK)(HWND);
+typedef void (*ENDSTATUSEXHOOK)();
+
+HMODULE g_finish_hmodule;
+typedef void (*BEGFINISHHOOK)(HWND);
+typedef void (*ENDFINISHHOOK)();
+
+HMODULE g_custom_hmodule;
+typedef void (*BEGCUSTOMHOOK)(HWND);
+typedef void (*ENDCUSTOMHOOK)();
+
+HMODULE g_uninstall_hmodule;
+typedef void (*BEGUNINSTALLHOOK)(HWND);
+typedef void (*ENDUNINSTALLHOOK)();
+
+#define WM_WELCOME_UI_BEG WM_USER + 1
+#define WM_WELCOME_UI_END WM_USER + 2
+
+#define WM_STATUSEX_UI_BEG WM_USER + 3
+#define WM_STATUSEX_UI_END WM_USER + 4
+
+#define WM_FINISH_UI_BEG WM_USER + 5
+#define WM_FINISH_UI_END WM_USER + 6
+
+#define WM_CUSTOM_UI_BEG WM_USER + 7
+#define WM_CUSTOM_UI_END WM_USER + 8
+
+#define WM_UNINSTALL_UI_BEG WM_USER + 9
+#define WM_UNINSTALL_UI_END WM_USER + 10
+
+BEGWELCOMEHOOK g_beg_welcome_hook;
+ENDWELCOMEHOOK g_end_welcome_hook;
+
+BEGSTATUSEXHOOK g_beg_statusex_hook;
+ENDSTATUSEXHOOK g_end_statusex_hook;
+
+BEGFINISHHOOK g_beg_finish_hook;
+ENDFINISHHOOK g_end_finish_hook;
+
+BEGCUSTOMHOOK g_beg_custom_hook;
+ENDCUSTOMHOOK g_end_custom_hook;
+
+BEGUNINSTALLHOOK g_beg_uninstall_hook;
+ENDUNINSTALLHOOK g_end_uninstall_hook;
+
 // Global Variables:
 HINSTANCE hInst;								// current instance
 TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
@@ -26,6 +76,96 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
  	// TODO: Place code here.
+	g_welcome_hmodule = LoadLibrary(L"hook_ui_welcome");
+	if (NULL == g_welcome_hmodule)
+	{
+		OutputDebugString(L"LoadLibrary hook_ui_welcome failed");
+	}
+
+	g_beg_welcome_hook = (BEGWELCOMEHOOK)GetProcAddress(g_welcome_hmodule, "BegWelcomeHook");
+	if (NULL == g_beg_welcome_hook)
+	{
+		OutputDebugString(L"g_beg_welcome_hook null");
+	}
+
+	g_end_welcome_hook = (ENDWELCOMEHOOK)GetProcAddress(g_welcome_hmodule, "EndWelcomeHook");
+	if (NULL == g_end_welcome_hook)
+	{
+		OutputDebugString(L"g_end_welcome_hook null");
+	}
+
+	g_statusex_hmodule = LoadLibrary(L"hook_ui_statusex");
+	if (NULL == g_statusex_hmodule)
+	{
+		OutputDebugString(L"LoadLibrary hook_ui_statusex failed");
+	}
+
+	g_beg_statusex_hook = (BEGWELCOMEHOOK)GetProcAddress(g_statusex_hmodule, "BegStatusexHook");
+	if (NULL == g_beg_statusex_hook)
+	{
+		OutputDebugString(L"g_beg_statusex_hook null");
+	}
+
+	g_end_statusex_hook = (ENDWELCOMEHOOK)GetProcAddress(g_statusex_hmodule, "EndStatusexHook");
+	if (NULL == g_end_statusex_hook)
+	{
+		OutputDebugString(L"g_end_statusex_hook null");
+	}
+
+	g_finish_hmodule = LoadLibrary(L"hook_ui_finish");
+	if (NULL == g_finish_hmodule)
+	{
+		OutputDebugString(L"LoadLibrary hook_ui_finish failed");
+	}
+
+	g_beg_finish_hook = (BEGFINISHHOOK)GetProcAddress(g_finish_hmodule, "BegFinishHook");
+	if (NULL == g_beg_finish_hook)
+	{
+		OutputDebugString(L"g_beg_finish_hook null");
+	}
+
+	g_end_finish_hook = (ENDFINISHHOOK)GetProcAddress(g_finish_hmodule, "EndFinishHook");
+	if (NULL == g_end_finish_hook)
+	{
+		OutputDebugString(L"g_end_finish_hook null");
+	}
+
+	g_custom_hmodule = LoadLibrary(L"hook_ui_custom");
+	if (NULL == g_custom_hmodule)
+	{
+		OutputDebugString(L"LoadLibrary hook_ui_custom failed");
+	}
+
+	g_beg_custom_hook = (BEGCUSTOMHOOK)GetProcAddress(g_custom_hmodule, "BegCustomHook");
+	if (NULL == g_beg_custom_hook)
+	{
+		OutputDebugString(L"g_beg_custom_hook null");
+	}
+
+	g_end_custom_hook = (ENDCUSTOMHOOK)GetProcAddress(g_custom_hmodule, "EndCustomHook");
+	if (NULL == g_end_custom_hook)
+	{
+		OutputDebugString(L"g_end_custom_hook null");
+	}
+
+	g_uninstall_hmodule = LoadLibrary(L"hook_ui_uninstall");
+	if (NULL == g_uninstall_hmodule)
+	{
+		OutputDebugString(L"LoadLibrary hook_ui_uninstall failed");
+	}
+
+	g_beg_uninstall_hook = (BEGUNINSTALLHOOK)GetProcAddress(g_uninstall_hmodule, "BegUninstallHook");
+	if (NULL == g_beg_uninstall_hook)
+	{
+		OutputDebugString(L"g_beg_uninstall_hook null");
+	}
+
+	g_end_uninstall_hook = (ENDUNINSTALLHOOK)GetProcAddress(g_uninstall_hmodule, "EndUninstallHook");
+	if (NULL == g_end_uninstall_hook)
+	{
+		OutputDebugString(L"g_end_uninstall_hook null");
+	}
+
 	MSG msg;
 	HACCEL hAccelTable;
 
@@ -54,8 +194,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
 	return (int) msg.wParam;
 }
-
-
 
 //
 //  FUNCTION: MyRegisterClass()
@@ -121,6 +259,33 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
+void stop_bbrd_event()
+{
+	HANDLE h = CreateEvent(NULL, TRUE, FALSE, L"stop_bbrd_event");
+	SetEvent(h);
+	CloseHandle(h);
+
+	h = CreateEvent(NULL, TRUE, FALSE, L"stop_bbrd_event_done");
+	OutputDebugString(L"wait stop_bbrd_event_done");
+	WaitForSingleObject(h, 2000);
+	OutputDebugString(L"get stop_bbrd_event_done");
+	CloseHandle(h);
+}
+
+void free_all_dlls()
+{
+	if (g_welcome_hmodule)
+		FreeLibrary(g_welcome_hmodule);
+	if (g_statusex_hmodule)
+		FreeLibrary(g_statusex_hmodule);
+	if (g_finish_hmodule)
+		FreeLibrary(g_finish_hmodule);
+	if (g_custom_hmodule)
+		FreeLibrary(g_custom_hmodule);
+	if (g_uninstall_hmodule)
+		FreeLibrary(g_uninstall_hmodule);
+}
+
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -136,6 +301,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
 	HDC hdc;
+	TCHAR sz[MAX_PATH] = {0};
 
 	switch (message)
 	{
@@ -160,7 +326,49 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// TODO: Add any drawing code here...
 		EndPaint(hWnd, &ps);
 		break;
+	case WM_WELCOME_UI_BEG:
+		_stprintf_s(sz, L"WM_WELCOME_UI_BEG wparam: %x", wParam);
+		OutputDebugString(sz);
+		g_beg_welcome_hook((HWND)wParam);
+		break;
+	case WM_WELCOME_UI_END:
+		g_end_welcome_hook();
+		break;
+	case WM_STATUSEX_UI_BEG:
+		_stprintf_s(sz, L"WM_STATUSEX_UI_BEG wparam: %x", wParam);
+		OutputDebugString(sz);
+		g_beg_statusex_hook((HWND)wParam);
+		break;
+	case WM_STATUSEX_UI_END:
+		stop_bbrd_event();
+		g_end_statusex_hook();
+		break;
+	case WM_FINISH_UI_BEG:
+		_stprintf_s(sz, L"WM_FINISH_UI_BEG wparam: %x", wParam);
+		OutputDebugString(sz);
+		g_beg_finish_hook((HWND)wParam);
+		break;
+	case WM_FINISH_UI_END:
+		g_end_finish_hook();
+		break;
+	case WM_CUSTOM_UI_BEG:
+		_stprintf_s(sz, L"WM_CUSTOM_UI_BEG wparam: %x", wParam);
+		OutputDebugString(sz);
+		g_beg_custom_hook((HWND)wParam);
+		break;
+	case WM_CUSTOM_UI_END:
+		g_end_custom_hook();
+		break;
+	case WM_UNINSTALL_UI_BEG:
+		_stprintf_s(sz, L"WM_UNINSTALL_UI_BEG wparam: %x", wParam);
+		OutputDebugString(sz);
+		g_beg_uninstall_hook((HWND)wParam);
+		break;
+	case WM_UNINSTALL_UI_END:
+		g_end_uninstall_hook();
+		break;
 	case WM_DESTROY:
+		free_all_dlls();
 		PostQuitMessage(0);
 		break;
 	default:
