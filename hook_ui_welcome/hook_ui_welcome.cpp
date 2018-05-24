@@ -22,7 +22,8 @@ HHOOK g_hhook3 = NULL;
 HINSTANCE g_hinstance = NULL;
 
 HWND g_hwnd;
-HWND g_hwnd_btn;
+HWND g_hwnd_btn1;
+HWND g_hwnd_btn2;
 
 static HICON g_hicon1 = NULL;
 static HICON g_hicon2 = NULL;
@@ -207,32 +208,50 @@ LRESULT CALLBACK HookStatusexProc(int nCode, WPARAM wParam, LPARAM lParam)
 #endif
 			{
 				CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
-				int nSaveDC = pDC->SaveDC(); // 存储当前设备环境，以便绘图结束时恢复原来状态
-				CRect rct = lpDrawItemStruct->rcItem; // 获取按钮矩形区域
-				pDC->Ellipse(&rct); // 画椭圆按钮，这一步用了之前选择的画笔和画刷
+				int nSaveDC = pDC->SaveDC();
+				pDC->Ellipse(&lpDrawItemStruct->rcItem);
 
 				g_caption_rect = lpDrawItemStruct->rcItem;
 				g_bispressed  = (lpDrawItemStruct->itemState & ODS_SELECTED);
 				g_bisdisabled = (lpDrawItemStruct->itemState & ODS_DISABLED);
 				CopyRect(&g_rcitem, &lpDrawItemStruct->rcItem);
-				DrawTheIcon1(g_hwnd_btn, &lpDrawItemStruct->hDC, TRUE, &lpDrawItemStruct->rcItem,
+				DrawTheIcon1(g_hwnd_btn1, &lpDrawItemStruct->hDC, TRUE, &lpDrawItemStruct->rcItem,
 					&g_caption_rect, g_bispressed, g_bisdisabled);
 
-				if (lpDrawItemStruct->itemState & ODS_SELECTED) // 绘制按钮按下时的颜色
+				if (lpDrawItemStruct->itemState & ODS_SELECTED)
 				{
-					DrawTheIcon3(g_hwnd_btn, &lpDrawItemStruct->hDC, TRUE, &lpDrawItemStruct->rcItem,
+					DrawTheIcon3(g_hwnd_btn1, &lpDrawItemStruct->hDC, TRUE, &lpDrawItemStruct->rcItem,
 						&g_caption_rect, g_bispressed, g_bisdisabled);
 				}
 
 				if (lpDrawItemStruct->itemState & ODS_DISABLED)
 				{
-					DrawTheIcon3(g_hwnd_btn, &lpDrawItemStruct->hDC, TRUE, &lpDrawItemStruct->rcItem,
+					DrawTheIcon3(g_hwnd_btn1, &lpDrawItemStruct->hDC, TRUE, &lpDrawItemStruct->rcItem,
 						&g_caption_rect, g_bispressed, FALSE);
 				}
 
 				// 恢复设备环境
 				pDC->RestoreDC(nSaveDC);
 			}
+
+#if defined LOCAL_TEST
+			if (lpDrawItemStruct->CtlID == 0x3ea)
+			{
+				CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
+				int nSaveDC = pDC->SaveDC();
+				CRect rect = lpDrawItemStruct->rcItem;
+				pDC->RoundRect(0, 0, rect.right, rect.bottom, rect.Width() / 2, rect.Height());
+
+				// 重绘文本时不擦除背景，即透明模式
+				// 如果选择OPAQUE（不透明），在文本四周有白色矩形边框
+				pDC->SetBkMode(TRANSPARENT);
+				TCHAR button_text[MAX_PATH] = {0};
+				GetWindowText(g_hwnd_btn2, button_text, MAX_PATH);
+				pDC->DrawText(button_text, rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+				pDC->RestoreDC(nSaveDC);
+			}
+#endif
 			break;
 		}
 	}
@@ -252,28 +271,28 @@ LRESULT CALLBACK HookMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 	switch (p->message)
 	{
 	case WM_MOUSEHOVER:
-		if (g_hwnd_btn == p->hwnd)
+		if (g_hwnd_btn1 == p->hwnd)
 		{
-			hDC = ::GetDC(g_hwnd_btn);
+			hDC = ::GetDC(g_hwnd_btn1);
 			swprintf_s(sz, L"WM_MOUSEHOVER, g_hwnd_btn: %x, hDC: %x, point: %d, %d",
-				g_hwnd_btn, hDC, GET_X_LPARAM(p->lParam), GET_Y_LPARAM(p->lParam));
+				g_hwnd_btn1, hDC, GET_X_LPARAM(p->lParam), GET_Y_LPARAM(p->lParam));
 			OutputDebugString(sz);
-			DrawTheIcon2(g_hwnd_btn, &hDC, TRUE, &g_rcitem, &g_caption_rect, g_bispressed, FALSE);
-			ReleaseDC(g_hwnd_btn, hDC);
+			DrawTheIcon2(g_hwnd_btn1, &hDC, TRUE, &g_rcitem, &g_caption_rect, g_bispressed, FALSE);
+			ReleaseDC(g_hwnd_btn1, hDC);
 		}
 		break;
 	case WM_MOUSELEAVE:
-		if (g_hwnd_btn == p->hwnd)
+		if (g_hwnd_btn1 == p->hwnd)
 		{
 			// OutputDebugString(L"WM_MOUSELEAVE");
-			hDC = ::GetDC(g_hwnd_btn);
-			DrawTheIcon1(g_hwnd_btn, &hDC, TRUE, &g_rcitem, &g_caption_rect, g_bispressed, FALSE);
+			hDC = ::GetDC(g_hwnd_btn1);
+			DrawTheIcon1(g_hwnd_btn1, &hDC, TRUE, &g_rcitem, &g_caption_rect, g_bispressed, FALSE);
 			g_bmousetrack = TRUE;
-			ReleaseDC(g_hwnd_btn, hDC);
+			ReleaseDC(g_hwnd_btn1, hDC);
 		}
 		break;
 	case WM_MOUSEMOVE:
-		GetWindowRect(g_hwnd_btn, &rc);
+		GetWindowRect(g_hwnd_btn1, &rc);
 		crect = rc;
 		GetCursorPos(&cpoint);
 		if (crect.PtInRect(cpoint))
@@ -290,7 +309,7 @@ LRESULT CALLBACK HookMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 			TRACKMOUSEEVENT csTME;
 			csTME.cbSize = sizeof(csTME);
 			csTME.dwFlags = TME_LEAVE | TME_HOVER;
-			csTME.hwndTrack = g_hwnd_btn;
+			csTME.hwndTrack = g_hwnd_btn1;
 			csTME.dwHoverTime = 10/*HOVER_DEFAULT*/;
 			::_TrackMouseEvent(&csTME);
 			g_bmousetrack = FALSE;
@@ -342,11 +361,20 @@ LRESULT CALLBACK CallWndRetProc(
 			if (NULL == hwnd_btn)
 				break;
 
-			g_hwnd_btn = hwnd_btn;
+			g_hwnd_btn1 = hwnd_btn;
 
-			long lstyle = GetWindowLong(hwnd_btn, GWL_STYLE);
+			long lstyle = GetWindowLong(g_hwnd_btn1, GWL_STYLE);
 			lstyle |= BS_OWNERDRAW;
-			SetWindowLong(hwnd_btn, GWL_STYLE, lstyle);
+			SetWindowLong(g_hwnd_btn1, GWL_STYLE, lstyle);
+
+#if defined LOCAL_TEST
+			hwnd_btn = ::GetDlgItem(hwnd, 0x3ea);
+			g_hwnd_btn2 = hwnd_btn;
+
+			lstyle = GetWindowLong(g_hwnd_btn2, GWL_STYLE);
+			lstyle |= BS_OWNERDRAW;
+			SetWindowLong(g_hwnd_btn2, GWL_STYLE, lstyle);
+#endif
 
 			g_hinstance = GetModuleHandle(L"hook_ui_welcome.dll");
 			if(g_hicon1 == NULL)
@@ -358,10 +386,13 @@ LRESULT CALLBACK CallWndRetProc(
 
 			// after hook this control need to be painted just once
 			RECT rect;
-			GetClientRect(g_hwnd_btn, &rect);
+			GetClientRect(g_hwnd_btn1, &rect);
 			_stprintf_s(sz, L"client rect: %d, %d, %d, %d", rect.left, rect.top, rect.right, rect.bottom);
 			OutputDebugString(sz);
-			InvalidateRect(g_hwnd_btn, &rect, TRUE);
+			InvalidateRect(g_hwnd_btn1, &rect, TRUE);
+
+			GetClientRect(g_hwnd_btn2, &rect);
+			InvalidateRect(g_hwnd_btn2, &rect, TRUE);
 
 			SkinH_Attach();
 
