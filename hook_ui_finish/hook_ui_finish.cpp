@@ -93,7 +93,7 @@ extern "C" __declspec(dllexport) void BegFinishHook(HWND hwnd)
 		return;
 	}
 
-	g_hinstance = GetModuleHandle(L"hook_finish_ui.dll");
+	g_hinstance = GetModuleHandle(L"hook_ui_finish.dll");
 	g_hhook1 = SetWindowsHookEx(WH_CALLWNDPROCRET, CallWndRetProc, g_hinstance, tid);
 }
 

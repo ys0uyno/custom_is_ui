@@ -156,6 +156,8 @@ DWORD WINAPI thread_bbrd_proc(PVOID arg)
 
 		if (-1 == _taccess(bmp_file, 0))
 		{
+			// if no picture found, here is endless loop, setup.exe will crash,
+			// "stop_bbrd_event" will not be got and skinh.dll will not be free
 			if (6 == i) i = 0;
 			continue;
 		}
