@@ -342,7 +342,7 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam,LPARAM lParam)
 			HWND hwnd = FindWindow(NULL, TARGET_TITLE);
 			if (NULL == hwnd)
 			{
-				OutputDebugString(L"findwindow error");
+				OutputDebugString(L"find window error");
 				break;
 			}
 
