@@ -29,7 +29,7 @@
 HHOOK g_hhook = NULL;
 HINSTANCE g_hinstance = NULL;
 
-#define LOCAL_TEST
+#define LOCAL_TEST1
 
 #if defined LOCAL_TEST
 TCHAR *g_is_ui_title[] =

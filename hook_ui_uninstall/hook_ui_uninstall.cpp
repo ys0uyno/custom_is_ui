@@ -8,8 +8,40 @@
 #define new DEBUG_NEW
 #endif
 
+#define TARGET_TITLE L"×¼±¸Ð¶ÔØ"
+
 HINSTANCE g_hinstance = NULL;
 HHOOK g_hhook1 = NULL;
+HHOOK g_hhook2 = NULL;
+HHOOK g_hhook3 = NULL;
+
+HWND g_hwnd_btn1 = NULL;
+
+class brush_class
+{
+public:
+	brush_class()
+	{
+		m_brush_normal.CreateSolidBrush(RGB(10, 220, 200));
+		m_brush_hover.CreateSolidBrush(RGB(230, 220, 100));
+		m_brush_click.CreateSolidBrush(RGB(130, 120, 0));
+	}
+
+	~brush_class()
+	{
+		m_brush_normal.DeleteObject();
+		m_brush_hover.DeleteObject();
+		m_brush_click.DeleteObject();
+	}
+
+public:
+	CBrush m_brush_normal;
+	CBrush m_brush_hover;
+	CBrush m_brush_click;
+};
+
+brush_class g_brush;
+BOOL g_bmousetrack = TRUE;
 
 //
 //TODO: If this DLL is dynamically linked against the MFC DLLs,
@@ -76,12 +108,138 @@ LRESULT CALLBACK CallWndRetProc(
 	{
 	case WM_INITDIALOG:
 		{
+			OutputDebugString(L"after hook_ui_uninstall WM_INITDIALOG");
+			HWND hwnd = FindWindow(NULL, TARGET_TITLE);
+			if (NULL == hwnd)
+			{
+				OutputDebugString(L"findwindow error");
+				break;
+			}
+
+			HWND hwnd_btn = ::GetDlgItem(hwnd, 0x1);
+			if (NULL == hwnd_btn)
+				break;
+
+			g_hwnd_btn1 = hwnd_btn;
+
+			long lstyle = GetWindowLong(g_hwnd_btn1, GWL_STYLE);
+			lstyle |= BS_OWNERDRAW;
+			SetWindowLong(g_hwnd_btn1, GWL_STYLE, lstyle);
+
+			g_hinstance = GetModuleHandle(L"hook_ui_uninstall.dll");
+
 			SkinH_Attach();
 			break;
 		}
 	}
 
 	return CallNextHookEx(g_hhook1, nCode, wParam, lParam);
+}
+
+LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	CWPSTRUCT *p = (CWPSTRUCT *)lParam;
+	LPDRAWITEMSTRUCT lpDrawItemStruct = (LPDRAWITEMSTRUCT)p->lParam;
+
+	switch (p->message)
+	{
+	case WM_DRAWITEM:
+		{
+			if (lpDrawItemStruct->CtlID == 0x1)
+			{
+				CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
+				int nSaveDC = pDC->SaveDC();
+				pDC->SelectObject(&g_brush.m_brush_normal);
+				if (lpDrawItemStruct->itemState & ODS_SELECTED)
+				{
+					// need called before call RoundRect
+					pDC->SelectObject(&g_brush.m_brush_click);
+				}
+
+				CRect rect = lpDrawItemStruct->rcItem;
+				pDC->RoundRect(0, 0, rect.right, rect.bottom, rect.Width() / 2, rect.Height());
+
+				pDC->SetBkMode(TRANSPARENT);
+				TCHAR button_text[MAX_PATH] = {0};
+				GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
+				pDC->DrawText(button_text, rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+				pDC->RestoreDC(nSaveDC);
+			}
+			break;
+		}
+	}
+
+	return CallNextHookEx(g_hhook2, nCode, wParam, lParam);
+}
+
+LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	MSG *p = (MSG *)lParam;
+	HDC hDC;
+	TCHAR sz[MAX_PATH] = {0};
+	RECT rect;
+	CPoint cpoint;
+
+	switch (p->message)
+	{
+	case WM_MOUSEHOVER:
+		if (g_hwnd_btn1 == p->hwnd)
+		{
+			hDC = ::GetDC(g_hwnd_btn1);
+			swprintf_s(sz, L"WM_MOUSEHOVER, g_hwnd_btn: %x, hDC: %x, point: %d, %d",
+				g_hwnd_btn1, hDC, GET_X_LPARAM(p->lParam), GET_Y_LPARAM(p->lParam));
+			OutputDebugString(sz);
+
+			CDC* pDC = CDC::FromHandle(hDC);
+			pDC->SelectObject(&g_brush.m_brush_hover);
+			GetClientRect(g_hwnd_btn1, &rect);
+			pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
+				rect.bottom - rect.top);
+
+			pDC->SetBkMode(TRANSPARENT);
+			TCHAR button_text[MAX_PATH] = {0};
+			GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
+			pDC->DrawText(button_text, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+			ReleaseDC(g_hwnd_btn1, hDC);
+		}
+		break;
+	case WM_MOUSELEAVE:
+		if (g_hwnd_btn1 == p->hwnd)
+		{
+			// OutputDebugString(L"WM_MOUSELEAVE");
+			hDC = ::GetDC(g_hwnd_btn1);
+
+			CDC* pDC = CDC::FromHandle(hDC);
+			pDC->SelectObject(&g_brush.m_brush_normal);
+			GetClientRect(g_hwnd_btn1, &rect);
+			pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
+				rect.bottom - rect.top);
+
+			pDC->SetBkMode(TRANSPARENT);
+			TCHAR button_text[MAX_PATH] = {0};
+			GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
+			pDC->DrawText(button_text, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+			g_bmousetrack = TRUE;
+			ReleaseDC(g_hwnd_btn1, hDC);
+		}
+		break;
+	case WM_MOUSEMOVE:
+		if (g_bmousetrack)
+		{
+			TRACKMOUSEEVENT csTME;
+			csTME.cbSize = sizeof(csTME);
+			csTME.dwFlags = TME_LEAVE | TME_HOVER;
+			csTME.hwndTrack = g_hwnd_btn1;
+			csTME.dwHoverTime = 10/*HOVER_DEFAULT*/;
+			::_TrackMouseEvent(&csTME);
+			g_bmousetrack = FALSE;
+		}
+		break;
+	}
+	return CallNextHookEx(g_hhook3, nCode, wParam, lParam);
 }
 
 extern "C" __declspec(dllexport) void BegUninstallHook(HWND hwnd)
@@ -95,10 +253,18 @@ extern "C" __declspec(dllexport) void BegUninstallHook(HWND hwnd)
 
 	g_hinstance = GetModuleHandle(L"hook_ui_uninstall.dll");
 	g_hhook1 = SetWindowsHookEx(WH_CALLWNDPROCRET, CallWndRetProc, g_hinstance, tid);
+	g_hhook2 = SetWindowsHookEx(WH_CALLWNDPROC, CallWndProc, g_hinstance, tid);
+	g_hhook3 = SetWindowsHookEx(WH_GETMESSAGE, GetMsgProc, g_hinstance, tid);
 }
 
 extern "C" __declspec(dllexport) void EndUninstallHook()
 {
 	if (NULL != g_hhook1)
 		UnhookWindowsHookEx(g_hhook1);
+
+	if (NULL != g_hhook2)
+		UnhookWindowsHookEx(g_hhook2);
+
+	if (NULL != g_hhook3)
+		UnhookWindowsHookEx(g_hhook3);
 }

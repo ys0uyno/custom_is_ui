@@ -8,7 +8,7 @@
 #define new DEBUG_NEW
 #endif
 
-#define LOCAL_TEST
+#define LOCAL_TEST1
 
 #if defined LOCAL_TEST
 #define TARGET_TITLE L"target_mfc_ui"
@@ -192,7 +192,7 @@ static void DrawTheIcon3(HWND hButtonWnd, HDC* dc, BOOL bHasTitle,
 		);
 }
 
-LRESULT CALLBACK HookStatusexProc(int nCode, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	CWPSTRUCT *p = (CWPSTRUCT *)lParam;
 	LPDRAWITEMSTRUCT lpDrawItemStruct = (LPDRAWITEMSTRUCT)p->lParam;
@@ -230,7 +230,6 @@ LRESULT CALLBACK HookStatusexProc(int nCode, WPARAM wParam, LPARAM lParam)
 						&g_caption_rect, g_bispressed, FALSE);
 				}
 
-				// 恢复设备环境
 				pDC->RestoreDC(nSaveDC);
 			}
 
@@ -259,7 +258,7 @@ LRESULT CALLBACK HookStatusexProc(int nCode, WPARAM wParam, LPARAM lParam)
 	return CallNextHookEx(g_hhook1, nCode, wParam, lParam);
 }
 
-LRESULT CALLBACK HookMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	MSG *p = (MSG *)lParam;
 	HDC hDC;
@@ -330,11 +329,7 @@ DWORD WINAPI detach_skin_proc(PVOID arg)
 	return 0;
 }
 
-LRESULT CALLBACK CallWndRetProc(
-	_In_ int    nCode,
-	_In_ WPARAM wParam,
-	_In_ LPARAM lParam
-	)
+LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam,LPARAM lParam)
 {
 	TCHAR sz[MAX_PATH] = {0};
 
@@ -343,7 +338,7 @@ LRESULT CALLBACK CallWndRetProc(
 	{
 	case WM_INITDIALOG:
 		{
-			OutputDebugString(L"after WM_INITDIALOG");
+			OutputDebugString(L"after hook_ui_welcome WM_INITDIALOG");
 			HWND hwnd = FindWindow(NULL, TARGET_TITLE);
 			if (NULL == hwnd)
 			{
@@ -417,9 +412,9 @@ extern "C" __declspec(dllexport) void BegWelcomeHook(HWND hwnd)
 	}
 
 	g_hinstance = GetModuleHandle(L"hook_ui_welcome.dll");
-	g_hhook1 = SetWindowsHookEx(WH_CALLWNDPROC, HookStatusexProc, g_hinstance, tid);
+	g_hhook1 = SetWindowsHookEx(WH_CALLWNDPROC, CallWndProc, g_hinstance, tid);
 	g_hhook2 = SetWindowsHookEx(WH_CALLWNDPROCRET, CallWndRetProc, g_hinstance, tid);
-	g_hhook3 = SetWindowsHookEx(WH_GETMESSAGE, HookMsgProc, g_hinstance, tid);
+	g_hhook3 = SetWindowsHookEx(WH_GETMESSAGE, GetMsgProc, g_hinstance, tid);
 }
 
 extern "C" __declspec(dllexport) void EndWelcomeHook()
