@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include "hook_ui_welcome.h"
+#include "transparent_button.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -34,6 +35,15 @@ BOOL g_bisdisabled;
 RECT g_rcitem;
 
 BOOL g_bmousetrack = TRUE;
+
+transparent_button g_tb_button_close;
+HWND g_tb_button_close_hwnd = NULL;
+
+#define IDC_TRANSPARENT_BUTTON_CLOSE 1111
+
+#define CORNER_SIZE 2
+
+WNDPROC g_old_proc;
 
 //
 //TODO: If this DLL is dynamically linked against the MFC DLLs,
@@ -192,6 +202,90 @@ static void DrawTheIcon3(HWND hButtonWnd, HDC* dc, BOOL bHasTitle,
 		);
 }
 
+void DrawBK(HDC dc, CImage *img, BUTTON_STATUS button_status, const transparent_button *tb, HWND tb_hwnd)
+{
+	if (!img)
+	{
+		return;
+	}
+
+	CRect rc;
+	GetClientRect(tb_hwnd, &rc);
+	CRect temp_rect;
+	int nX = 0;
+	int nY = 0;
+	int nW = 0;
+	int nH = 0;
+
+	if (tb->m_b_autosize == true)
+	{
+		temp_rect.SetRect(0, 0, rc.Width(), rc.Height());
+		if (img)
+		{
+			img->Draw(dc, temp_rect);
+		}
+	}
+	else
+	{
+		if(button_status == BUTTON_NORMAL)
+		{
+			nW = tb->m_button_png_normal.width;
+			nH = tb->m_button_png_normal.height;
+		}
+		else if (button_status == BUTTON_HOVER)
+		{
+			nW = tb->m_button_png_hover.width;
+			nH = tb->m_button_png_hover.height;
+		}
+		else if (button_status == BUTTON_CLICK)
+		{
+			nW = tb->m_button_png_click.width;
+			nH = tb->m_button_png_click.height;
+		}
+		else
+		{
+			nW = tb->m_button_png_disable.width;
+			nH = tb->m_button_png_disable.height;
+		}
+
+		nX = (rc.Width() - nW) / 2;
+		nY = (rc.Height() - nH) / 2;
+		temp_rect.SetRect(nX, nY, nW + nX, nH + nY);
+		if (img)
+		{
+			img->Draw(dc, temp_rect);
+		}
+	}
+}
+
+void DrawButtonText(HDC dc, const CString &strText, int nMove, BUTTON_STATUS button_status, HWND tb_hwnd)
+{
+	CRect rect;
+	GetClientRect(tb_hwnd, &rect);
+	rect.DeflateRect(nMove, nMove, 0, 0);
+
+	CDC::FromHandle(dc)->SetBkMode(TRANSPARENT);
+
+	if (button_status == BUTTON_NORMAL)
+	{
+		CDC::FromHandle(dc)->SetTextColor(RGB(30, 30, 30));
+	}
+	else if (button_status == BUTTON_HOVER)
+	{
+		CDC::FromHandle(dc)->SetTextColor(RGB(30, 30, 30));
+	}
+	else if (button_status == BUTTON_CLICK)
+	{
+		CDC::FromHandle(dc)->SetTextColor(RGB(30, 30, 30));
+	}
+	else
+	{
+		CDC::FromHandle(dc)->SetTextColor(RGB(100, 100, 100));
+	}
+
+	CDC::FromHandle(dc)->DrawText(strText, rect, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+}
+
 LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	CWPSTRUCT *p = (CWPSTRUCT *)lParam;
@@ -251,8 +345,162 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				pDC->RestoreDC(nSaveDC);
 			}
 #endif
+			switch (lpDrawItemStruct->CtlID)
+			{
+			case IDC_TRANSPARENT_BUTTON_CLOSE:
+				{
+					g_tb_button_close_hwnd = GetDlgItem(g_hwnd, IDC_TRANSPARENT_BUTTON_CLOSE);
+					if (NULL == g_tb_button_close_hwnd)
+						break;
+
+					CDC *pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
+					CRect rect = lpDrawItemStruct->rcItem;
+					TCHAR strText[MAX_PATH] = {0};
+					GetWindowText(g_tb_button_close_hwnd, strText, MAX_PATH);
+
+					if(lpDrawItemStruct->itemState & ODS_DISABLED)
+					{
+						DrawBK(*pDC, g_tb_button_close.m_button_png_disable.pimage, BUTTON_DISABLE,
+							&g_tb_button_close, g_tb_button_close_hwnd);
+					}
+					else if(lpDrawItemStruct->itemState & ODS_SELECTED
+						|| (g_tb_button_close.m_b_ishover && g_tb_button_close.m_b_isclicked))
+					{
+						DrawBK(*pDC, g_tb_button_close.m_button_png_click.pimage, BUTTON_CLICK,
+							&g_tb_button_close, g_tb_button_close_hwnd);
+					}
+					else if(g_tb_button_close.m_b_ishover)
+					{
+						DrawBK(*pDC, g_tb_button_close.m_button_png_hover.pimage, BUTTON_HOVER,
+							&g_tb_button_close, g_tb_button_close_hwnd);
+					}
+					else
+					{
+						DrawBK(*pDC, g_tb_button_close.m_button_png_normal.pimage, BUTTON_NORMAL,
+							&g_tb_button_close, g_tb_button_close_hwnd);
+					}
+
+					CString strTemp(strText);
+					strTemp.Remove(' ');
+					if (!strTemp.IsEmpty())
+					{
+						if(lpDrawItemStruct->itemState & ODS_DISABLED)
+						{
+							DrawButtonText(*pDC, strText, 0, BUTTON_DISABLE, g_tb_button_close_hwnd);
+						}
+						else if(lpDrawItemStruct->itemState & ODS_SELECTED
+							|| (g_tb_button_close.m_b_ishover && g_tb_button_close.m_b_isclicked))
+						{
+							DrawButtonText(*pDC, strText, 1, BUTTON_CLICK, g_tb_button_close_hwnd);
+						}
+						else if(g_tb_button_close.m_b_ishover)
+						{
+							DrawButtonText(*pDC, strText, 0, BUTTON_HOVER, g_tb_button_close_hwnd);
+						}
+						else
+						{
+							DrawButtonText(*pDC, strText, 0, BUTTON_NORMAL, g_tb_button_close_hwnd);
+						}
+					}
+				}
+				break;
+			}
 			break;
 		}
+	case WM_COMMAND:
+		{
+			switch (p->wParam)
+			{
+			case IDC_TRANSPARENT_BUTTON_CLOSE:
+				PostQuitMessage(0);
+				break;
+			}
+		}
+		break;
+	case WM_PAINT:
+		{
+			HDC hdc = ::GetDC(g_hwnd);
+			CDC	*pDC = CDC::FromHandle(hdc);
+
+			RECT rect;
+			GetClientRect(g_hwnd, &rect);
+
+			// outside of window border
+			CPen *old_pen = NULL;
+			CPen new_pen1(PS_SOLID, 1, RGB(27, 147, 186));
+			old_pen = pDC->SelectObject(&new_pen1);
+
+			pDC->MoveTo(rect.left, CORNER_SIZE);
+			pDC->LineTo(CORNER_SIZE, rect.top);
+			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.top);
+			pDC->LineTo(rect.right - 1, CORNER_SIZE);
+			pDC->LineTo(rect.right - 1, rect.bottom - CORNER_SIZE - 1);
+			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.bottom - 1);
+			pDC->LineTo(CORNER_SIZE, rect.bottom - 1);
+			pDC->LineTo(rect.left, rect.bottom - CORNER_SIZE - 1);
+			pDC->LineTo(rect.left, CORNER_SIZE);
+
+			// fill in gaps
+			pDC->MoveTo(rect.left + 1, CORNER_SIZE);
+			pDC->LineTo(CORNER_SIZE + 1, rect.top);
+			pDC->MoveTo(rect.right - CORNER_SIZE - 1, rect.top + 1);
+			pDC->LineTo(rect.right - 1, CORNER_SIZE + 1);
+			pDC->MoveTo(rect.right - 2, rect.bottom - CORNER_SIZE - 1);
+			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.bottom - 1);
+			pDC->MoveTo(CORNER_SIZE, rect.bottom - 2);
+			pDC->LineTo(rect.left, rect.bottom - CORNER_SIZE - 2);
+
+			pDC->SelectObject(old_pen);
+
+			// inside of window border
+			CPen new_pen2(PS_SOLID, 1, RGB(196, 234, 247));
+			old_pen = pDC->SelectObject(&new_pen2);
+
+			pDC->MoveTo(rect.left + 1, CORNER_SIZE + 1);
+			pDC->LineTo(CORNER_SIZE + 1, rect.top + 1);
+			pDC->LineTo(rect.right - CORNER_SIZE - 2, rect.top + 1);
+			pDC->LineTo(rect.right - 2, CORNER_SIZE + 1);
+			pDC->LineTo(rect.right - 2, rect.bottom - CORNER_SIZE - 2);
+			pDC->LineTo(rect.right - CORNER_SIZE - 2, rect.bottom - 2);
+			pDC->LineTo(CORNER_SIZE + 1, rect.bottom - 2);
+			pDC->LineTo(rect.left + 1, rect.bottom - CORNER_SIZE - 2);
+			pDC->LineTo(rect.left + 1, CORNER_SIZE + 1);
+		}
+		break;
+	case WM_SIZE:
+		{
+			if (p->hwnd == g_hwnd)
+			{
+				// remove the four sharp corners of the border
+				if (p->wParam != SIZE_MAXIMIZED)
+				{
+					RECT rc;
+					GetClientRect(g_hwnd, &rc);
+
+					CRgn rgn;
+					CPoint points[8] =
+					{
+						CPoint(rc.left, CORNER_SIZE),
+						CPoint(CORNER_SIZE, rc.top),
+						CPoint(rc.right - CORNER_SIZE, rc.top),
+						CPoint(rc.right, CORNER_SIZE),
+						CPoint(rc.right, rc.bottom - CORNER_SIZE - 1),
+						CPoint(rc.right - CORNER_SIZE - 1, rc.bottom),
+						CPoint(CORNER_SIZE + 1, rc.bottom),
+						CPoint(rc.left, rc.bottom - CORNER_SIZE - 1)
+					};
+
+					int nPolyCounts[1] = {8};
+					int dd = rgn.CreatePolyPolygonRgn(points, nPolyCounts, 1, WINDING);
+					SetWindowRgn(g_hwnd, rgn, TRUE);
+				}
+				else
+				{
+					SetWindowRgn(g_hwnd, NULL, FALSE);
+				}
+			}
+		}
+		break;
 	}
 
 	return CallNextHookEx(g_hhook1, nCode, wParam, lParam);
@@ -314,6 +562,19 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 			g_bmousetrack = FALSE;
 		}
 		break;
+	case WM_LBUTTONDOWN:
+		OutputDebugString(L"WM_LBUTTONDOWN hook");
+		// how to move dialog without title bar
+		// https://www.cnblogs.com/huhu0013/p/4640728.html
+		// SendMessage(g_hwnd, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, p->lParam);
+
+		// it is best to use the following PostMessage, because clicking on the ok
+		// button when using SendMessage requires more than one click
+		if (g_hwnd == p->hwnd)
+		{
+			PostMessage(p->hwnd, WM_NCLBUTTONDOWN, HTCAPTION, p->lParam);
+		}
+		break;
 	}
 	return CallNextHookEx(g_hhook3, nCode, wParam, lParam);
 }
@@ -329,7 +590,20 @@ DWORD WINAPI detach_skin_proc(PVOID arg)
 	return 0;
 }
 
-LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam,LPARAM lParam)
+LRESULT CALLBACK new_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	if (Msg == WM_CTLCOLORBTN)
+	{
+		HBRUSH hbrush;
+		hbrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+		SetBkMode((HDC)wParam, TRANSPARENT);
+		return ((LRESULT)hbrush);
+	}
+
+	return CallWindowProc(g_old_proc, hWnd, Msg, wParam, lParam);
+}
+
+LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	TCHAR sz[MAX_PATH] = {0};
 
@@ -338,6 +612,7 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam,LPARAM lParam)
 	{
 	case WM_INITDIALOG:
 		{
+			AfxWinInit(GetModuleHandle(L"hook_ui_welcome"), NULL, GetCommandLine(), 0);
 			OutputDebugString(L"after hook_ui_welcome WM_INITDIALOG");
 			HWND hwnd = FindWindow(NULL, TARGET_TITLE);
 			if (NULL == hwnd)
@@ -371,6 +646,48 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam,LPARAM lParam)
 			SetWindowLong(g_hwnd_btn2, GWL_STYLE, lstyle);
 #endif
 
+			long new_style = WS_OVERLAPPED
+				| WS_VISIBLE
+				| WS_SYSMENU
+				| WS_MINIMIZEBOX
+				| WS_MAXIMIZEBOX
+				| WS_CLIPCHILDREN
+				| WS_CLIPSIBLINGS;
+
+			lstyle = GetWindowLong(hwnd, GWL_STYLE);
+			lstyle &= new_style; // & will remove style from new_style
+			SetWindowLong(hwnd, GWL_STYLE, lstyle);
+
+			// round rectangle
+			RECT window_rect;
+			RECT client_rect;
+			GetWindowRect(hwnd, &window_rect);
+			GetClientRect(hwnd, &client_rect);
+			MoveWindow(hwnd,
+				window_rect.left,
+				window_rect.top,
+				client_rect.right - client_rect.left,
+				client_rect.bottom - client_rect.top,
+				TRUE
+				);
+
+			g_tb_button_close.Create(
+				L"",
+				WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+				CRect(
+				client_rect.right - 40 * 1 - 4,
+				client_rect.top + 4,
+				client_rect.right - 40 * 1 - 4 + 40,
+				client_rect.top + 28
+				),
+				CWnd::FromHandle(hwnd),
+				IDC_TRANSPARENT_BUTTON_CLOSE
+				);
+			g_tb_button_close.SetAutoSize(false);
+			g_tb_button_close.Load(IDB_CLOSE, 39);
+
+			g_old_proc = (WNDPROC)SetWindowLong(hwnd, GWL_WNDPROC, (LONG)new_proc);
+
 			g_hinstance = GetModuleHandle(L"hook_ui_welcome.dll");
 			if(g_hicon1 == NULL)
 				g_hicon1 = (HICON)LoadImage(g_hinstance, MAKEINTRESOURCE(IDI_NORMAL), IMAGE_ICON, 75, 75, 0);
@@ -385,9 +702,6 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam,LPARAM lParam)
 			_stprintf_s(sz, L"client rect: %d, %d, %d, %d", rect.left, rect.top, rect.right, rect.bottom);
 			OutputDebugString(sz);
 			InvalidateRect(g_hwnd_btn1, &rect, TRUE);
-
-			GetClientRect(g_hwnd_btn2, &rect);
-			InvalidateRect(g_hwnd_btn2, &rect, TRUE);
 
 			SkinH_Attach();
 
