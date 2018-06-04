@@ -87,6 +87,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	getchar();
 	end_hook();
 
+	SendMessage(FindWindow(NULL, L"win32_dll_loader"), WM_DESTROY, 0, 0);
+
 	CloseHandle(pi.hProcess);
 	FreeLibrary(hmodule);
 	return 0;
