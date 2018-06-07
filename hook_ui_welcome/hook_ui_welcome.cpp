@@ -45,6 +45,8 @@ HWND g_tb_button_close_hwnd = NULL;
 
 WNDPROC g_old_proc;
 
+static bool g_subclassed = false;
+
 //
 //TODO: If this DLL is dynamically linked against the MFC DLLs,
 //		any functions exported from this DLL which call into
@@ -600,6 +602,11 @@ LRESULT CALLBACK new_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 		return ((LRESULT)hbrush);
 	}
 
+	if (Msg == WM_DESTROY)
+	{
+		g_subclassed = false;
+	}
+
 	return CallWindowProc(g_old_proc, hWnd, Msg, wParam, lParam);
 }
 
@@ -612,6 +619,12 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_INITDIALOG:
 		{
+			if (g_subclassed)
+			{
+				break;
+			}
+			g_subclassed = true;
+
 			AfxWinInit(GetModuleHandle(L"hook_ui_welcome"), NULL, GetCommandLine(), 0);
 			OutputDebugString(L"after hook_ui_welcome WM_INITDIALOG");
 			HWND hwnd = FindWindow(NULL, TARGET_TITLE);
