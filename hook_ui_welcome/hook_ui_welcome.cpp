@@ -646,30 +646,26 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 			SetWindowLong(g_hwnd_btn2, GWL_STYLE, lstyle);
 #endif
 
-			long new_style = WS_OVERLAPPED
+			DWORD dwStyle = GetWindowLong(hwnd, GWL_STYLE);
+			DWORD dwNewStyle = WS_OVERLAPPED
 				| WS_VISIBLE
 				| WS_SYSMENU
 				| WS_MINIMIZEBOX
 				| WS_MAXIMIZEBOX
 				| WS_CLIPCHILDREN
 				| WS_CLIPSIBLINGS;
+			dwNewStyle &= dwStyle; // & will remove style
+			SetWindowLong(hwnd, GWL_STYLE, dwNewStyle);
 
-			lstyle = GetWindowLong(hwnd, GWL_STYLE);
-			lstyle &= new_style; // & will remove style from new_style
-			SetWindowLong(hwnd, GWL_STYLE, lstyle);
+			DWORD dwExStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+			DWORD dwNewExStyle = WS_EX_LEFT | WS_EX_LTRREADING | WS_EX_RIGHTSCROLLBAR;
+			dwNewExStyle &= dwExStyle;
+			SetWindowLong(hwnd, GWL_EXSTYLE, dwNewExStyle);
 
-			// round rectangle
-			RECT window_rect;
+			SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+
 			RECT client_rect;
-			GetWindowRect(hwnd, &window_rect);
 			GetClientRect(hwnd, &client_rect);
-			MoveWindow(hwnd,
-				window_rect.left,
-				window_rect.top,
-				client_rect.right - client_rect.left,
-				client_rect.bottom - client_rect.top,
-				TRUE
-				);
 
 			g_tb_button_close.Create(
 				L"",
@@ -697,11 +693,9 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 				g_hicon3 = (HICON)LoadImage(g_hinstance, MAKEINTRESOURCE(IDI_CLICK), IMAGE_ICON, 75, 75, 0);
 
 			// after hook this control need to be painted just once
-			RECT rect;
-			GetClientRect(g_hwnd_btn1, &rect);
-			_stprintf_s(sz, L"client rect: %d, %d, %d, %d", rect.left, rect.top, rect.right, rect.bottom);
-			OutputDebugString(sz);
-			InvalidateRect(g_hwnd_btn1, &rect, TRUE);
+			RECT g_hwnd_btn1_rect;
+			GetClientRect(g_hwnd_btn1, &g_hwnd_btn1_rect);
+			InvalidateRect(g_hwnd_btn1, &g_hwnd_btn1_rect, TRUE);
 
 			SkinH_Attach();
 
