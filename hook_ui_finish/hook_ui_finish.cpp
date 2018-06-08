@@ -239,6 +239,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	}
+
 	return CallNextHookEx(g_hhook3, nCode, wParam, lParam);
 }
 
