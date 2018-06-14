@@ -181,6 +181,11 @@ DWORD WINAPI thread_bbrd_proc(PVOID arg)
 		img.Load(bmp_file);
 		img.Draw(hDC, rect);
 
+		// after draw billboard picture repaint transparent button
+		RECT temp_rect;
+		GetClientRect(g_tb_button_close_hwnd, &temp_rect);
+		InvalidateRect(g_tb_button_close_hwnd, &temp_rect, TRUE);
+
 		DWORD ret = WaitForSingleObject(h, 3000); // 3s is bbrd interval time
 		if (WAIT_OBJECT_0 == ret)
 		{
@@ -354,6 +359,10 @@ LRESULT CALLBACK CallWndRetProc(
 			dwNewExStyle &= dwExStyle;
 			SetWindowLong(hwnd, GWL_EXSTYLE, dwNewExStyle);
 
+			dwStyle = GetWindowLong(hwnd, GWL_STYLE);
+			dwStyle |= WS_CLIPCHILDREN;
+			SetWindowLong(hwnd, GWL_STYLE, dwStyle);
+
 			SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
 
 			RECT client_rect;
@@ -408,8 +417,6 @@ LRESULT CALLBACK CallWndRetProc(
 LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	MSG *p = (MSG *)lParam;
-	HDC hDC;
-	PAINTSTRUCT ps;
 
 	switch (p->message)
 	{
@@ -461,35 +468,6 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 			pDC->LineTo(CORNER_SIZE + 1, rect.bottom - 2);
 			pDC->LineTo(rect.left + 1, rect.bottom - CORNER_SIZE - 2);
 			pDC->LineTo(rect.left + 1, CORNER_SIZE + 1);
-
-			// draw banner image
-			HWND banner_image_hwnd = GetDlgItem(g_hwnd, 0xffffffff);
-			if (banner_image_hwnd && p->hwnd == banner_image_hwnd)
-			{
-				hDC = BeginPaint(p->hwnd, &ps);
-
-				RECT client_rect;
-				GetClientRect(g_hwnd, &client_rect);
-				DWORD banner_width = client_rect.right - client_rect.left;
-
-				MoveWindow(banner_image_hwnd,
-					client_rect.left,
-					client_rect.top,
-					banner_width,
-					(int)(banner_width / 2.424),
-					TRUE);
-
-				HDC banner_image_hdc = GetDC(banner_image_hwnd);
-				RECT banner_image_rect;
-				GetClientRect(banner_image_hwnd, &banner_image_rect);
-
-				CImage banner_image;
-				banner_image.Load(L"E:\\is_pictures\\banner.bmp");
-				banner_image.Draw(banner_image_hdc, banner_image_rect);
-				ReleaseDC(banner_image_hwnd, banner_image_hdc);
-
-				EndPaint(p->hwnd, &ps);
-			}
 		}
 		break;
 	case WM_LBUTTONDOWN:
