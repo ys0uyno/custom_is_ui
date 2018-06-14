@@ -22,12 +22,18 @@
     <None Include="res\hook_ui_statusex.rc2">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="res\close.png">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="hook_ui_statusex.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="transparent_button.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -42,6 +48,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="transparent_button.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
