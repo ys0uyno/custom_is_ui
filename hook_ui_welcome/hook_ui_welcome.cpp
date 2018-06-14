@@ -581,6 +581,54 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_PAINT:
 		{
+			HDC hdc = ::GetDC(g_hwnd);
+			CDC	*pDC = CDC::FromHandle(hdc);
+
+			RECT rect;
+			GetClientRect(g_hwnd, &rect);
+
+			// outside of window border
+			CPen *old_pen = NULL;
+			CPen new_pen1(PS_SOLID, 1, RGB(27, 147, 186));
+			old_pen = pDC->SelectObject(&new_pen1);
+
+			pDC->MoveTo(rect.left, CORNER_SIZE);
+			pDC->LineTo(CORNER_SIZE, rect.top);
+			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.top);
+			pDC->LineTo(rect.right - 1, CORNER_SIZE);
+			pDC->LineTo(rect.right - 1, rect.bottom - CORNER_SIZE - 1);
+			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.bottom - 1);
+			pDC->LineTo(CORNER_SIZE, rect.bottom - 1);
+			pDC->LineTo(rect.left, rect.bottom - CORNER_SIZE - 1);
+			pDC->LineTo(rect.left, CORNER_SIZE);
+
+			// fill in gaps
+			pDC->MoveTo(rect.left + 1, CORNER_SIZE);
+			pDC->LineTo(CORNER_SIZE + 1, rect.top);
+			pDC->MoveTo(rect.right - CORNER_SIZE - 1, rect.top + 1);
+			pDC->LineTo(rect.right - 1, CORNER_SIZE + 1);
+			pDC->MoveTo(rect.right - 2, rect.bottom - CORNER_SIZE - 1);
+			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.bottom - 1);
+			pDC->MoveTo(CORNER_SIZE, rect.bottom - 2);
+			pDC->LineTo(rect.left, rect.bottom - CORNER_SIZE - 2);
+
+			pDC->SelectObject(old_pen);
+
+			// inside of window border
+			CPen new_pen2(PS_SOLID, 1, RGB(196, 234, 247));
+			old_pen = pDC->SelectObject(&new_pen2);
+
+			pDC->MoveTo(rect.left + 1, CORNER_SIZE + 1);
+			pDC->LineTo(CORNER_SIZE + 1, rect.top + 1);
+			pDC->LineTo(rect.right - CORNER_SIZE - 2, rect.top + 1);
+			pDC->LineTo(rect.right - 2, CORNER_SIZE + 1);
+			pDC->LineTo(rect.right - 2, rect.bottom - CORNER_SIZE - 2);
+			pDC->LineTo(rect.right - CORNER_SIZE - 2, rect.bottom - 2);
+			pDC->LineTo(CORNER_SIZE + 1, rect.bottom - 2);
+			pDC->LineTo(rect.left + 1, rect.bottom - CORNER_SIZE - 2);
+			pDC->LineTo(rect.left + 1, CORNER_SIZE + 1);
+
+			// draw banner image
 			HWND banner_image_hwnd = GetDlgItem(g_hwnd, 0xffffffff);
 			if (banner_image_hwnd && p->hwnd == banner_image_hwnd)
 			{
