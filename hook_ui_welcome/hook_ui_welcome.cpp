@@ -808,6 +808,76 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 					TRUE);
 			}
 
+			// reposition control position
+			// 0x3ea - agree agreement check box control
+			// 0x3eb - agreement syslink control
+			// 0x3f4 - custom options syslink control
+			// 0x001 - install button
+			RECT window_rect;
+			GetWindowRect(hwnd, &window_rect);
+			CRect window_crect(window_rect);
+
+			RECT agree_check_rect;
+			HWND agree_check_hwnd = GetDlgItem(hwnd, 0x3ea);
+			if (agree_check_hwnd)
+			{
+				GetClientRect(agree_check_hwnd, &agree_check_rect);
+				CRect temp_crect(agree_check_rect);
+
+				MoveWindow(agree_check_hwnd,
+					temp_crect.left + 10,
+					temp_crect.top + (window_crect.Height() - temp_crect.Height() - 10),
+					temp_crect.Width(),
+					temp_crect.Height(),
+					TRUE);
+			}
+
+			HWND agreement_syslink_hwnd = GetDlgItem(hwnd, 0x3eb);
+			if (agreement_syslink_hwnd && agree_check_hwnd)
+			{
+				RECT temp_rect;
+				GetClientRect(agreement_syslink_hwnd, &temp_rect);
+				CRect temp_crect(temp_rect);
+
+				MoveWindow(agreement_syslink_hwnd,
+					temp_crect.left + (agree_check_rect.right - agree_check_rect.left + 4) + 10,
+					temp_crect.top + (window_crect.Height() - temp_crect.Height() - 12),
+					temp_crect.Width(),
+					temp_crect.Height(),
+					TRUE);
+			}
+
+			HWND options_syslink_hwnd = GetDlgItem(hwnd, 0x3f4);
+			if (options_syslink_hwnd)
+			{
+				RECT temp_rect;
+				GetClientRect(options_syslink_hwnd, &temp_rect);
+				CRect temp_crect(temp_rect);
+
+				MoveWindow(options_syslink_hwnd,
+					temp_crect.left + (window_crect.Width() - temp_crect.Width()) - 10,
+					temp_crect.top + (window_crect.Height() - temp_crect.Height() - 12),
+					temp_crect.Width(),
+					temp_crect.Height(),
+					TRUE);
+			}
+
+			HWND install_button_hwnd = GetDlgItem(hwnd, 0x001);
+			if (install_button_hwnd)
+			{
+				RECT temp_rect;
+				GetClientRect(install_button_hwnd, &temp_rect);
+				CRect temp_crect(temp_rect);
+
+				MoveWindow(install_button_hwnd,
+					temp_crect.left + (window_crect.Width() - temp_crect.Width()) / 2,
+					temp_crect.top +
+					(window_crect.Height() - temp_crect.Height() - (agree_check_rect.bottom - agree_check_rect.top) - 16),
+					temp_crect.Width(),
+					temp_crect.Height(),
+					TRUE);
+			}
+
 			SkinH_Attach();
 
 			// seem there is no way to hook WM_QUIT, WM_DESTROY and WM_CLOSE
