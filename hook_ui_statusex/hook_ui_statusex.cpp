@@ -151,7 +151,7 @@ DWORD WINAPI thread_bbrd_proc(PVOID arg)
 
 	for (int i = 1; i <= 6; ++i)
 	{
-		CString bmp_file(path);
+		CString bmp_file(/*path*/L"E:\\is_pictures\\");
 		bmp_file.AppendFormat(L"statusex%d.bmp", i);
 
 		if (-1 == _taccess(bmp_file, 0))

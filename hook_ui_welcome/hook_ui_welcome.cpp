@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "hook_ui_welcome.h"
 #include "transparent_button.h"
+#include <atlimage.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -516,6 +517,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 	CRect crect;
 	RECT rc;
 	CPoint cpoint;
+	PAINTSTRUCT ps;
 
 	switch (p->message)
 	{
@@ -575,6 +577,37 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 		if (g_hwnd == p->hwnd)
 		{
 			PostMessage(p->hwnd, WM_NCLBUTTONDOWN, HTCAPTION, p->lParam);
+		}
+		break;
+	case WM_PAINT:
+		{
+			HWND banner_image_hwnd = GetDlgItem(g_hwnd, 0xffffffff);
+			if (banner_image_hwnd && p->hwnd == banner_image_hwnd)
+			{
+				hDC = BeginPaint(p->hwnd, &ps);
+
+				RECT client_rect;
+				GetClientRect(g_hwnd, &client_rect);
+				DWORD banner_width = client_rect.right - client_rect.left;
+
+				MoveWindow(banner_image_hwnd,
+					client_rect.left,
+					client_rect.top,
+					banner_width,
+					(int)(banner_width / 2.424),
+					TRUE);
+
+				HDC banner_image_hdc = GetDC(banner_image_hwnd);
+				RECT banner_image_rect;
+				GetClientRect(banner_image_hwnd, &banner_image_rect);
+
+				CImage banner_image;
+				banner_image.Load(L"E:\\is_pictures\\banner.bmp");
+				banner_image.Draw(banner_image_hdc, banner_image_rect);
+				ReleaseDC(banner_image_hwnd, banner_image_hdc);
+
+				EndPaint(p->hwnd, &ps);
+			}
 		}
 		break;
 	}
@@ -710,6 +743,22 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 			RECT g_hwnd_btn1_rect;
 			GetClientRect(g_hwnd_btn1, &g_hwnd_btn1_rect);
 			InvalidateRect(g_hwnd_btn1, &g_hwnd_btn1_rect, TRUE);
+
+			// for dpi
+			HWND banner_image_hwnd = GetDlgItem(hwnd, 0xffffffff);
+			if (banner_image_hwnd)
+			{
+				RECT client_rect;
+				GetClientRect(hwnd, &client_rect);
+				DWORD banner_width = client_rect.right - client_rect.left;
+
+				MoveWindow(banner_image_hwnd,
+					client_rect.left,
+					client_rect.top,
+					banner_width,
+					(int)(banner_width / 2.424),
+					TRUE);
+			}
 
 			SkinH_Attach();
 
