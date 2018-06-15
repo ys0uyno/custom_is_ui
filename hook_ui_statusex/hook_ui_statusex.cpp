@@ -381,6 +381,14 @@ LRESULT CALLBACK CallWndRetProc(
 					);
 			}
 
+			// hide some control
+			ShowWindow(GetDlgItem(hwnd, 0x032), SW_HIDE);
+			ShowWindow(GetDlgItem(hwnd, 0x514), SW_HIDE);
+			ShowWindow(GetDlgItem(hwnd, 0x515), SW_HIDE);
+			ShowWindow(GetDlgItem(hwnd, 0x033), SW_HIDE);
+			ShowWindow(GetDlgItem(hwnd, 0x002), SW_HIDE);
+			SetDlgItemText(hwnd, 0x002, L"");
+
 			DWORD dwStyle = GetWindowLong(hwnd, GWL_STYLE);
 			DWORD dwNewStyle = WS_OVERLAPPED
 				| WS_VISIBLE
@@ -425,7 +433,7 @@ LRESULT CALLBACK CallWndRetProc(
 
 			g_old_proc = (WNDPROC)SetWindowLong(hwnd, GWL_WNDPROC, (LONG)new_proc);
 
-			HWND banner_image_hwnd = GetDlgItem(hwnd, 0xffffffff);
+			HWND banner_image_hwnd = GetDlgItem(hwnd, 0x34);
 			if (banner_image_hwnd)
 			{
 				RECT client_rect;
@@ -438,6 +446,75 @@ LRESULT CALLBACK CallWndRetProc(
 					banner_width,
 					(int)(banner_width / 2.424),
 					TRUE);
+			}
+
+			// repositioning control
+			// 0x578 top text
+			// 0x5aa middle text
+			// 0x5dc bottom progress bar
+			RECT is_client_rect = {0};
+			GetClientRect(hwnd, &is_client_rect);
+			CRect is_client_crect(is_client_rect);
+
+			RECT rect_progress_bar = {0};
+			HWND hwnd_progress_bar = GetDlgItem(hwnd, 0x5dc);
+			if (hwnd_progress_bar)
+			{
+				GetClientRect(hwnd_progress_bar, &rect_progress_bar);
+				MoveWindow(hwnd_progress_bar,
+					is_client_crect.Height() / 8,
+					(is_client_crect.Height() / 8) * 7,
+					is_client_crect.Width() - is_client_crect.Height() / 4,
+					rect_progress_bar.bottom - rect_progress_bar.top,
+					TRUE);
+			}
+
+			RECT rect_status_text2 = {0};
+			HWND hwnd_status_text2 = GetDlgItem(hwnd, 0x5aa);
+			DWORD font_height = 0;
+			if (hwnd_status_text2)
+			{
+				GetClientRect(hwnd_status_text2, &rect_status_text2);
+				font_height = rect_status_text2.bottom - rect_status_text2.top;
+				if (font_height > 0)
+				{
+					MoveWindow(hwnd_status_text2,
+						is_client_crect.Height() / 8,
+						(is_client_crect.Height() / 8) * 7 - (font_height / 2 + font_height) * 1,
+						is_client_crect.Width() - is_client_crect.Height() / 4,
+						rect_status_text2.bottom - rect_status_text2.top,
+						TRUE);
+				}
+			}
+
+			RECT rect_status_text1 = {0};
+			HWND hwnd_status_text1 = GetDlgItem(hwnd, 0x578);
+			if (hwnd_status_text1)
+			{
+				GetClientRect(hwnd_status_text1, &rect_status_text1);
+				if (font_height > 0)
+				{
+					MoveWindow(hwnd_status_text1,
+						is_client_crect.Height() / 8,
+						(is_client_crect.Height() / 8) * 7 - (font_height / 2 + font_height) * 2,
+						is_client_crect.Width() - is_client_crect.Height() / 4,
+						rect_status_text1.bottom - rect_status_text1.top,
+						TRUE);
+				}
+			}
+
+			// hide branding
+			HWND hwnd_hide = GetDlgItem(hwnd, 0x2c6);
+			if (hwnd_hide && font_height > 0)
+			{
+				MoveWindow(hwnd_hide,
+					is_client_crect.left + 2,
+					(is_client_crect.Height() / 3) * 2,
+					is_client_crect.Width() / 2,
+					font_height * 2,
+					TRUE);
+
+				SetDlgItemText(hwnd, 0x2c6, L"");
 			}
 
 			SkinH_Attach();
