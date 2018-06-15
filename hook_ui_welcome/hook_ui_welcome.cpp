@@ -48,6 +48,25 @@ WNDPROC g_old_proc;
 
 static bool g_subclassed = false;
 
+class pen_class
+{
+public:
+	pen_class()
+	{
+		m_pen.CreatePen(PS_NULL, 1, RGB(0, 0, 0));
+	}
+
+	~pen_class()
+	{
+		m_pen.DeleteObject();
+	}
+
+public:
+	CPen m_pen;
+};
+
+pen_class g_pen;
+
 //
 //TODO: If this DLL is dynamically linked against the MFC DLLs,
 //		any functions exported from this DLL which call into
@@ -306,6 +325,7 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 			{
 				CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
 				int nSaveDC = pDC->SaveDC();
+				pDC->SelectObject(&g_pen.m_pen);
 				pDC->Ellipse(&lpDrawItemStruct->rcItem);
 
 				g_caption_rect = lpDrawItemStruct->rcItem;

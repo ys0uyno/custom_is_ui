@@ -25,9 +25,10 @@ class brush_class
 public:
 	brush_class()
 	{
-		m_brush_normal.CreateSolidBrush(RGB(10, 220, 200));
-		m_brush_hover.CreateSolidBrush(RGB(230, 220, 100));
-		m_brush_click.CreateSolidBrush(RGB(130, 120, 0));
+		m_brush_normal.CreateSolidBrush(RGB(0, 173, 239));
+		m_brush_hover.CreateSolidBrush(RGB(0, 173, 239));
+		m_brush_click.CreateSolidBrush(RGB(8, 157, 214));
+		m_pen.CreatePen(PS_NULL, 1, RGB(0, 0, 0));
 	}
 
 	~brush_class()
@@ -35,12 +36,14 @@ public:
 		m_brush_normal.DeleteObject();
 		m_brush_hover.DeleteObject();
 		m_brush_click.DeleteObject();
+		m_pen.DeleteObject();
 	}
 
 public:
 	CBrush m_brush_normal;
 	CBrush m_brush_hover;
 	CBrush m_brush_click;
+	CPen m_pen;
 };
 
 brush_class g_brush;
@@ -325,6 +328,7 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
 				int nSaveDC = pDC->SaveDC();
 				pDC->SelectObject(&g_brush.m_brush_normal);
+				pDC->SelectObject(&g_brush.m_pen);
 				if (lpDrawItemStruct->itemState & ODS_SELECTED)
 				{
 					// need called before call RoundRect
@@ -426,6 +430,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 			CDC* pDC = CDC::FromHandle(hDC);
 			pDC->SelectObject(&g_brush.m_brush_hover);
+			pDC->SelectObject(&g_brush.m_pen);
 			GetClientRect(g_hwnd_btn1, &rect);
 			pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
 				rect.bottom - rect.top);
@@ -446,6 +451,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 			CDC* pDC = CDC::FromHandle(hDC);
 			pDC->SelectObject(&g_brush.m_brush_normal);
+			pDC->SelectObject(&g_brush.m_pen);
 			GetClientRect(g_hwnd_btn1, &rect);
 			pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
 				rect.bottom - rect.top);
