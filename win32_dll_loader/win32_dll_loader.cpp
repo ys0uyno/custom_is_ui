@@ -41,6 +41,14 @@ typedef void (*ENDUNINSTALLHOOK)();
 #define WM_UNINSTALL_UI_BEG WM_USER + 9
 #define WM_UNINSTALL_UI_END WM_USER + 10
 
+#define WM_QUERY_IS_WINDOW_RECT WM_USER + 11
+
+#define TARGET_WELCOME_TILE L"准备安装"
+#define TARGET_UNINSTALL_TILE L"准备卸载"
+
+#define SHARED_MEMORY_BUFF_SIZE 4096
+#define SHARED_MEMORY_BUFF_NAME L"_SHARED_MEMROY_YSOUYNO_"
+
 BEGWELCOMEHOOK g_beg_welcome_hook;
 ENDWELCOMEHOOK g_end_welcome_hook;
 
@@ -55,6 +63,9 @@ ENDCUSTOMHOOK g_end_custom_hook;
 
 BEGUNINSTALLHOOK g_beg_uninstall_hook;
 ENDUNINSTALLHOOK g_end_uninstall_hook;
+
+HANDLE g_hmap = NULL;
+LPVOID g_pmap = NULL;
 
 // Global Variables:
 HINSTANCE hInst;								// current instance
@@ -286,6 +297,69 @@ void free_all_dlls()
 		FreeLibrary(g_uninstall_hmodule);
 }
 
+int shared_memory_query_is_window_rect()
+{
+	HWND hwnd_welcome_ui = FindWindow(NULL, TARGET_WELCOME_TILE);
+	HWND hwnd_uninstall_ui = FindWindow(NULL, TARGET_UNINSTALL_TILE);
+	if (NULL == hwnd_welcome_ui && NULL == hwnd_uninstall_ui)
+	{
+		OutputDebugString(L"FindWindow failed");
+		return -1;
+	}
+
+	TCHAR buff[MAX_PATH] = {0};
+	HWND hwnd_target = (hwnd_welcome_ui == NULL ? hwnd_uninstall_ui : hwnd_welcome_ui);
+	RECT is_window_rect = {0};
+	GetWindowRect(hwnd_target, &is_window_rect);
+	_stprintf_s(buff, L"IS window rect: %d, %d, %d, %d",
+		is_window_rect.left, is_window_rect.top, is_window_rect.right, is_window_rect.bottom);
+	OutputDebugString(buff);
+
+	g_hmap = CreateFileMapping(
+		INVALID_HANDLE_VALUE,
+		NULL,
+		PAGE_READWRITE,
+		0,
+		SHARED_MEMORY_BUFF_SIZE,
+		SHARED_MEMORY_BUFF_NAME
+		);
+	if (NULL == g_hmap)
+	{
+		_stprintf_s(buff, L"CreateFileMapping failed: %d", GetLastError());
+		OutputDebugString(buff);
+		return -1;
+	}
+
+	g_pmap = MapViewOfFile(
+		g_hmap,
+		FILE_MAP_ALL_ACCESS,
+		0,
+		0,
+		SHARED_MEMORY_BUFF_SIZE
+		);
+	if (NULL == g_pmap)
+	{
+		_stprintf_s(buff, L"MapViewOfFile failed: %d", GetLastError());
+		OutputDebugString(buff);
+		CloseHandle(g_hmap);
+		g_hmap = NULL;
+		return -1;
+	}
+
+	memcpy(g_pmap, (const void *)&is_window_rect, sizeof(is_window_rect));
+
+	return 0;
+}
+
+void close_shared_memory()
+{
+	if (g_pmap)
+		UnmapViewOfFile(g_pmap);
+
+	if (g_hmap)
+		CloseHandle(g_hmap);
+}
+
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -367,7 +441,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_UNINSTALL_UI_END:
 		g_end_uninstall_hook();
 		break;
+	case WM_QUERY_IS_WINDOW_RECT:
+		shared_memory_query_is_window_rect();
+		break;
 	case WM_DESTROY:
+		close_shared_memory();
 		free_all_dlls();
 		PostQuitMessage(0);
 		break;

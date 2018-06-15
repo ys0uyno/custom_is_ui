@@ -18,6 +18,8 @@
 #define TARGET_TITLE L"准备安装"
 #endif
 
+#define WM_QUERY_IS_WINDOW_RECT WM_USER + 11
+
 HHOOK g_hhook1 = NULL;
 HHOOK g_hhook2 = NULL;
 HHOOK g_hhook3 = NULL;
@@ -727,6 +729,12 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 			}
 
 			g_hwnd = hwnd;
+
+			HWND win32_hwnd = FindWindow(NULL, L"win32_dll_loader");
+			if (NULL != win32_hwnd)
+			{
+				SendMessage(win32_hwnd, WM_QUERY_IS_WINDOW_RECT, 0, 0);
+			}
 
 #if defined LOCAL_TEST
 			HWND hwnd_btn = ::GetDlgItem(hwnd, 0x3e8);

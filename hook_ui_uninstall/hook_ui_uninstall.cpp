@@ -13,6 +13,8 @@
 #define IDC_TRANSPARENT_BUTTON_CLOSE 9
 #define CORNER_SIZE 2
 
+#define WM_QUERY_IS_WINDOW_RECT WM_USER + 11
+
 HINSTANCE g_hinstance = NULL;
 HHOOK g_hhook1 = NULL;
 HHOOK g_hhook2 = NULL;
@@ -243,6 +245,12 @@ LRESULT CALLBACK CallWndRetProc(
 			}
 
 			g_hwnd = hwnd;
+
+			HWND win32_hwnd = FindWindow(NULL, L"win32_dll_loader");
+			if (NULL != win32_hwnd)
+			{
+				SendMessage(win32_hwnd, WM_QUERY_IS_WINDOW_RECT, 0, 0);
+			}
 
 			HWND hwnd_btn = ::GetDlgItem(hwnd, 0x1);
 			if (NULL == hwnd_btn)

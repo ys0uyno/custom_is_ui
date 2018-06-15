@@ -14,6 +14,8 @@
 #define TARGET_TITLE_UNINSTALL L"ÕýÔÚÐ¶ÔØ"
 #define TARGET_TITLE L"InstallShield Wizard"
 
+#define SHARED_MEMORY_BUFF_NAME L"_SHARED_MEMROY_YSOUYNO_"
+
 #define IDC_TRANSPARENT_BUTTON_CLOSE 2
 #define CORNER_SIZE 2
 
@@ -342,6 +344,42 @@ LRESULT CALLBACK CallWndRetProc(
 			}
 
 			g_hwnd = hwnd;
+
+			// read shared memory to get IS window rect
+			RECT is_window_rect = {0};
+			HANDLE hmap = OpenFileMapping(FILE_MAP_ALL_ACCESS, NULL, SHARED_MEMORY_BUFF_NAME);
+			if (hmap)
+			{
+				LPVOID pmap = MapViewOfFile(hmap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+				if (pmap)
+				{
+					memcpy((void *)&is_window_rect, pmap, sizeof(is_window_rect));
+					_stprintf_s(sz, L"IS window rect: %d, %d, %d, %d",
+						is_window_rect.left, is_window_rect.top, is_window_rect.right, is_window_rect.bottom);
+					OutputDebugString(sz);
+
+					UnmapViewOfFile(pmap);
+				}
+
+				CloseHandle(hmap);
+			}
+			else
+			{
+				_stprintf_s(sz, L"OpenFileMapping failed: %d", GetLastError());
+				OutputDebugString(sz);
+			}
+
+			if (0 != is_window_rect.right - is_window_rect.left &&
+				0 != is_window_rect.bottom - is_window_rect.top)
+			{
+				MoveWindow(hwnd,
+					is_window_rect.left,
+					is_window_rect.top,
+					is_window_rect.right - is_window_rect.left,
+					is_window_rect.bottom - is_window_rect.top,
+					TRUE
+					);
+			}
 
 			DWORD dwStyle = GetWindowLong(hwnd, GWL_STYLE);
 			DWORD dwNewStyle = WS_OVERLAPPED
