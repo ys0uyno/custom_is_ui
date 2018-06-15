@@ -26,9 +26,10 @@ public:
 	brush_class()
 	{
 		m_brush_normal.CreateSolidBrush(RGB(0, 173, 239));
-		m_brush_hover.CreateSolidBrush(RGB(0, 173, 239));
+		m_brush_hover.CreateSolidBrush(RGB(4, 165, 227));
 		m_brush_click.CreateSolidBrush(RGB(8, 157, 214));
 		m_pen.CreatePen(PS_NULL, 1, RGB(0, 0, 0));
+		m_font.CreatePointFont(150, _T("Arial"));
 	}
 
 	~brush_class()
@@ -37,6 +38,7 @@ public:
 		m_brush_hover.DeleteObject();
 		m_brush_click.DeleteObject();
 		m_pen.DeleteObject();
+		m_font.DeleteObject();
 	}
 
 public:
@@ -44,6 +46,7 @@ public:
 	CBrush m_brush_hover;
 	CBrush m_brush_click;
 	CPen m_pen;
+	CFont m_font;
 };
 
 brush_class g_brush;
@@ -329,6 +332,7 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				int nSaveDC = pDC->SaveDC();
 				pDC->SelectObject(&g_brush.m_brush_normal);
 				pDC->SelectObject(&g_brush.m_pen);
+				pDC->SelectObject(&g_brush.m_font);
 				if (lpDrawItemStruct->itemState & ODS_SELECTED)
 				{
 					// need called before call RoundRect
@@ -336,11 +340,12 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				}
 
 				CRect rect = lpDrawItemStruct->rcItem;
-				pDC->RoundRect(0, 0, rect.right, rect.bottom, rect.Width() / 2, rect.Height());
+				pDC->RoundRect(0, 0, rect.right, rect.bottom, rect.Width() / 3, rect.Height());
 
 				pDC->SetBkMode(TRANSPARENT);
 				TCHAR button_text[MAX_PATH] = {0};
 				GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
+				pDC->SetTextColor(RGB(255, 255, 255));
 				pDC->DrawText(button_text, rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
 				pDC->RestoreDC(nSaveDC);
@@ -431,6 +436,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 			CDC* pDC = CDC::FromHandle(hDC);
 			pDC->SelectObject(&g_brush.m_brush_hover);
 			pDC->SelectObject(&g_brush.m_pen);
+			pDC->SelectObject(&g_brush.m_font);
 			GetClientRect(g_hwnd_btn1, &rect);
 			pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
 				rect.bottom - rect.top);
@@ -438,6 +444,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 			pDC->SetBkMode(TRANSPARENT);
 			TCHAR button_text[MAX_PATH] = {0};
 			GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
+			pDC->SetTextColor(RGB(255, 255, 255));
 			pDC->DrawText(button_text, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
 			ReleaseDC(g_hwnd_btn1, hDC);
@@ -452,6 +459,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 			CDC* pDC = CDC::FromHandle(hDC);
 			pDC->SelectObject(&g_brush.m_brush_normal);
 			pDC->SelectObject(&g_brush.m_pen);
+			pDC->SelectObject(&g_brush.m_font);
 			GetClientRect(g_hwnd_btn1, &rect);
 			pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
 				rect.bottom - rect.top);
@@ -459,6 +467,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 			pDC->SetBkMode(TRANSPARENT);
 			TCHAR button_text[MAX_PATH] = {0};
 			GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
+			pDC->SetTextColor(RGB(255, 255, 255));
 			pDC->DrawText(button_text, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
 			g_bmousetrack = TRUE;

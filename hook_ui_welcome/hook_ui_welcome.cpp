@@ -40,7 +40,7 @@ BOOL g_bmousetrack = TRUE;
 transparent_button g_tb_button_close;
 HWND g_tb_button_close_hwnd = NULL;
 
-#define IDC_TRANSPARENT_BUTTON_CLOSE 1111
+#define IDC_TRANSPARENT_BUTTON_CLOSE 9
 
 #define CORNER_SIZE 2
 
@@ -430,16 +430,6 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		}
-	case WM_COMMAND:
-		{
-			switch (p->wParam)
-			{
-			case IDC_TRANSPARENT_BUTTON_CLOSE:
-				PostQuitMessage(0);
-				break;
-			}
-		}
-		break;
 	case WM_PAINT:
 		{
 			HDC hdc = ::GetDC(g_hwnd);
