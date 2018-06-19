@@ -382,11 +382,11 @@ LRESULT CALLBACK CallWndRetProc(
 			}
 
 			// hide some control
-			ShowWindow(GetDlgItem(hwnd, 0x032), SW_HIDE);
+			ShowWindow(GetDlgItem(hwnd, 0x032), SWP_HIDEWINDOW);
 			ShowWindow(GetDlgItem(hwnd, 0x514), SW_HIDE);
-			ShowWindow(GetDlgItem(hwnd, 0x515), SW_HIDE);
-			ShowWindow(GetDlgItem(hwnd, 0x033), SW_HIDE);
-			ShowWindow(GetDlgItem(hwnd, 0x002), SW_HIDE);
+			ShowWindow(GetDlgItem(hwnd, 0x515), SWP_HIDEWINDOW);
+			ShowWindow(GetDlgItem(hwnd, 0x033), SWP_HIDEWINDOW);
+			ShowWindow(GetDlgItem(hwnd, 0x002), SWP_HIDEWINDOW);
 			SetDlgItemText(hwnd, 0x002, L"");
 
 			DWORD dwStyle = GetWindowLong(hwnd, GWL_STYLE);
