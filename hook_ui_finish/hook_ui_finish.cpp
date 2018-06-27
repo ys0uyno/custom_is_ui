@@ -3,22 +3,20 @@
 
 #include "stdafx.h"
 #include "hook_ui_finish.h"
-#include "transparent_button.h"
+#include <atlimage.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
 #define TARGET_TITLE L"²Ù×÷Íê³É"
-#define IDC_TRANSPARENT_BUTTON_CLOSE 9
-#define CORNER_SIZE 2
 
 HINSTANCE g_hinstance = NULL;
-HHOOK g_hhook1 = NULL;
-HHOOK g_hhook2 = NULL;
-HHOOK g_hhook3 = NULL;
+HHOOK g_hhook_wnd = NULL;
+HHOOK g_hhook_wnd_ret = NULL;
+HHOOK g_hhook_msg = NULL;
 
-HWND g_hwnd_btn1 = NULL;
+HWND g_finish_button_hwnd = NULL;
 
 class brush_class
 {
@@ -53,12 +51,18 @@ brush_class g_brush;
 BOOL g_bmousetrack = TRUE;
 
 HWND g_hwnd = NULL;
-static bool g_subclassed = false;
-
-transparent_button g_tb_button_close;
-HWND g_tb_button_close_hwnd = NULL;
 
 WNDPROC g_old_proc;
+static bool g_subclassed = false;
+
+CString g_pictures_dir;
+
+CRect g_finish_button_crect;
+bool g_is_uninstall_finish = false;
+
+Gdiplus::Bitmap *g_pinstall_image;
+bool g_ishover = false;
+static bool g_bmouseleave_once = false;
 
 //
 //TODO: If this DLL is dynamically linked against the MFC DLLs,
@@ -114,88 +118,63 @@ BOOL Chook_ui_finishApp::InitInstance()
 	return TRUE;
 }
 
-void DrawBK(HDC dc, CImage *img, BUTTON_STATUS button_status, const transparent_button *tb, HWND tb_hwnd)
+void FillPathRoundRect(Gdiplus::Graphics *pGraphics, Gdiplus::Rect r, Gdiplus::Color color, int radius)
 {
-	if (!img)
-	{
-		return;
-	}
+	int dia = 2 * radius;
 
-	CRect rc;
-	GetClientRect(tb_hwnd, &rc);
-	CRect temp_rect;
-	int nX = 0;
-	int nY = 0;
-	int nW = 0;
-	int nH = 0;
+	Gdiplus::Rect Corner(r.X, r.Y, dia, dia);
 
-	if (tb->m_b_autosize == true)
-	{
-		temp_rect.SetRect(0, 0, rc.Width(), rc.Height());
-		if (img)
-		{
-			img->Draw(dc, temp_rect);
-		}
-	}
-	else
-	{
-		if(button_status == BUTTON_NORMAL)
-		{
-			nW = tb->m_button_png_normal.width;
-			nH = tb->m_button_png_normal.height;
-		}
-		else if (button_status == BUTTON_HOVER)
-		{
-			nW = tb->m_button_png_hover.width;
-			nH = tb->m_button_png_hover.height;
-		}
-		else if (button_status == BUTTON_CLICK)
-		{
-			nW = tb->m_button_png_click.width;
-			nH = tb->m_button_png_click.height;
-		}
-		else
-		{
-			nW = tb->m_button_png_disable.width;
-			nH = tb->m_button_png_disable.height;
-		}
+	Gdiplus::GraphicsPath path;
 
-		nX = (rc.Width() - nW) / 2;
-		nY = (rc.Height() - nH) / 2;
-		temp_rect.SetRect(nX, nY, nW + nX, nH + nY);
-		if (img)
-		{
-			img->Draw(dc, temp_rect);
-		}
-	}
+	// top left
+	path.AddArc(Corner, 180, 90);
+
+	// top right
+	Corner.X += (int)(r.Width - dia - 1);
+	path.AddArc(Corner, 270, 90);
+
+	// bottom right
+	Corner.Y += (int)(r.Height - dia - 1);
+	path.AddArc(Corner, 0, 90);
+
+	// bottom left
+	Corner.X -= (int)(r.Width - dia - 1);
+	path.AddArc(Corner, 90, 90);
+
+	path.CloseFigure();
+
+	Gdiplus::SolidBrush br(color);
+	pGraphics->FillPath(&br, &path);
 }
 
-void DrawButtonText(HDC dc, const CString &strText, int nMove, BUTTON_STATUS button_status, HWND tb_hwnd)
+void DrawPathRoundRect(Gdiplus::Graphics *pGraphics, Gdiplus::Rect r, Gdiplus::Color color, int radius, int width)
 {
-	CRect rect;
-	GetClientRect(tb_hwnd, &rect);
-	rect.DeflateRect(nMove, nMove, 0, 0);
+	int dia = 2 * radius;
 
-	CDC::FromHandle(dc)->SetBkMode(TRANSPARENT);
+	Gdiplus::Rect Corner(r.X, r.Y, dia, dia);
 
-	if (button_status == BUTTON_NORMAL)
-	{
-		CDC::FromHandle(dc)->SetTextColor(RGB(30, 30, 30));
-	}
-	else if (button_status == BUTTON_HOVER)
-	{
-		CDC::FromHandle(dc)->SetTextColor(RGB(30, 30, 30));
-	}
-	else if (button_status == BUTTON_CLICK)
-	{
-		CDC::FromHandle(dc)->SetTextColor(RGB(30, 30, 30));
-	}
-	else
-	{
-		CDC::FromHandle(dc)->SetTextColor(RGB(100, 100, 100));
-	}
+	Gdiplus::GraphicsPath path;
 
-	CDC::FromHandle(dc)->DrawText(strText, rect, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+	// top left
+	path.AddArc(Corner, 180, 90);
+
+	// top right
+	Corner.X += (int)(r.Width - dia - 1);
+	path.AddArc(Corner, 270, 90);
+
+	// bottom right
+	Corner.Y += (int)(r.Height - dia - 1);
+	path.AddArc(Corner, 0, 90);
+
+	// bottom left
+	Corner.X -= (int)(r.Width - dia - 1);
+	path.AddArc(Corner, 90, 90);
+
+	path.CloseFigure();
+
+	Gdiplus::Pen pen(color, (Gdiplus::REAL)width);
+	pen.SetAlignment(Gdiplus::PenAlignmentInset);
+	pGraphics->DrawPath(&pen, &path);
 }
 
 LRESULT CALLBACK new_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
@@ -216,107 +195,6 @@ LRESULT CALLBACK new_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	return CallWindowProc(g_old_proc, hWnd, Msg, wParam, lParam);
 }
 
-LRESULT CALLBACK CallWndRetProc(
-	_In_ int    nCode,
-	_In_ WPARAM wParam,
-	_In_ LPARAM lParam
-	)
-{
-	CWPRETSTRUCT *p = (CWPRETSTRUCT *)lParam;
-	switch (p->message)
-	{
-	case WM_INITDIALOG:
-		{
-			if (g_subclassed)
-			{
-				break;
-			}
-			g_subclassed = true;
-
-			AfxWinInit(GetModuleHandle(L"hook_ui_finish"), NULL, GetCommandLine(), 0);
-			OutputDebugString(L"after hook_ui_finish WM_INITDIALOG");
-			HWND hwnd = FindWindow(NULL, TARGET_TITLE);
-			if (NULL == hwnd)
-			{
-				OutputDebugString(L"find window error");
-				break;
-			}
-
-			g_hwnd = hwnd;
-
-			HWND hwnd_btn = ::GetDlgItem(hwnd, 0x1);
-			if (NULL == hwnd_btn)
-				break;
-
-			g_hwnd_btn1 = hwnd_btn;
-
-			long lstyle = GetWindowLong(g_hwnd_btn1, GWL_STYLE);
-			lstyle |= BS_OWNERDRAW;
-			SetWindowLong(g_hwnd_btn1, GWL_STYLE, lstyle);
-
-			g_hinstance = GetModuleHandle(L"hook_ui_finish.dll");
-
-			DWORD dwStyle = GetWindowLong(hwnd, GWL_STYLE);
-			DWORD dwNewStyle = WS_OVERLAPPED
-				| WS_VISIBLE
-				| WS_SYSMENU
-				| WS_MINIMIZEBOX
-				| WS_MAXIMIZEBOX
-				| WS_CLIPCHILDREN
-				| WS_CLIPSIBLINGS;
-			dwNewStyle &= dwStyle;
-			SetWindowLong(hwnd, GWL_STYLE, dwNewStyle);
-
-			DWORD dwExStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-			DWORD dwNewExStyle = WS_EX_LEFT | WS_EX_LTRREADING | WS_EX_RIGHTSCROLLBAR;
-			dwNewExStyle &= dwExStyle;
-			SetWindowLong(hwnd, GWL_EXSTYLE, dwNewExStyle);
-
-			SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
-
-			RECT client_rect;
-			GetClientRect(hwnd, &client_rect);
-
-			g_tb_button_close.Create(
-				L"",
-				WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-				CRect(
-				client_rect.right - 40 * 1 - 4,
-				client_rect.top + 4,
-				client_rect.right - 40 * 1 - 4 + 40,
-				client_rect.top + 28
-				),
-				CWnd::FromHandle(hwnd),
-				IDC_TRANSPARENT_BUTTON_CLOSE
-				);
-			g_tb_button_close.SetAutoSize(false);
-			g_tb_button_close.Load(IDB_CLOSE, 39);
-
-			g_old_proc = (WNDPROC)SetWindowLong(hwnd, GWL_WNDPROC, (LONG)new_proc);
-
-			HWND banner_image_hwnd = GetDlgItem(hwnd, 0xffffffff);
-			if (banner_image_hwnd)
-			{
-				RECT client_rect;
-				GetClientRect(hwnd, &client_rect);
-				DWORD banner_width = client_rect.right - client_rect.left;
-
-				MoveWindow(banner_image_hwnd,
-					client_rect.left,
-					client_rect.top,
-					banner_width,
-					(int)(banner_width / 2.424),
-					TRUE);
-			}
-
-			SkinH_Attach();
-			break;
-		}
-	}
-
-	return CallNextHookEx(g_hhook1, nCode, wParam, lParam);
-}
-
 LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	CWPSTRUCT *p = (CWPSTRUCT *)lParam;
@@ -326,92 +204,82 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_DRAWITEM:
 		{
-			if (lpDrawItemStruct->CtlID == 0x1)
+			switch (lpDrawItemStruct->CtlID)
 			{
-				CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
-				int nSaveDC = pDC->SaveDC();
-				pDC->SelectObject(&g_brush.m_brush_normal);
-				pDC->SelectObject(&g_brush.m_pen);
-				pDC->SelectObject(&g_brush.m_font);
-				if (lpDrawItemStruct->itemState & ODS_SELECTED)
+			case 0x1:
 				{
-					// need called before call RoundRect
-					pDC->SelectObject(&g_brush.m_brush_click);
-				}
-
-				CRect rect = lpDrawItemStruct->rcItem;
-				pDC->RoundRect(0, 0, rect.right, rect.bottom, rect.Width() / 3, rect.Height());
-
-				pDC->SetBkMode(TRANSPARENT);
-				TCHAR button_text[MAX_PATH] = {0};
-				GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
-				pDC->SetTextColor(RGB(255, 255, 255));
-				pDC->DrawText(button_text, rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-				pDC->RestoreDC(nSaveDC);
-			}
-
-			if (lpDrawItemStruct->CtlID == IDC_TRANSPARENT_BUTTON_CLOSE)
-			{
-				g_tb_button_close_hwnd = GetDlgItem(g_hwnd, IDC_TRANSPARENT_BUTTON_CLOSE);
-				if (NULL == g_tb_button_close_hwnd)
-					break;
-
-				CDC *pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
-				CRect rect = lpDrawItemStruct->rcItem;
-				TCHAR strText[MAX_PATH] = {0};
-				GetWindowText(g_tb_button_close_hwnd, strText, MAX_PATH);
-
-				if(lpDrawItemStruct->itemState & ODS_DISABLED)
-				{
-					DrawBK(*pDC, g_tb_button_close.m_button_png_disable.pimage, BUTTON_DISABLE,
-						&g_tb_button_close, g_tb_button_close_hwnd);
-				}
-				else if(lpDrawItemStruct->itemState & ODS_SELECTED
-					|| (g_tb_button_close.m_b_ishover && g_tb_button_close.m_b_isclicked))
-				{
-					DrawBK(*pDC, g_tb_button_close.m_button_png_click.pimage, BUTTON_CLICK,
-						&g_tb_button_close, g_tb_button_close_hwnd);
-				}
-				else if(g_tb_button_close.m_b_ishover)
-				{
-					DrawBK(*pDC, g_tb_button_close.m_button_png_hover.pimage, BUTTON_HOVER,
-						&g_tb_button_close, g_tb_button_close_hwnd);
-				}
-				else
-				{
-					DrawBK(*pDC, g_tb_button_close.m_button_png_normal.pimage, BUTTON_NORMAL,
-						&g_tb_button_close, g_tb_button_close_hwnd);
-				}
-
-				CString strTemp(strText);
-				strTemp.Remove(' ');
-				if (!strTemp.IsEmpty())
-				{
-					if(lpDrawItemStruct->itemState & ODS_DISABLED)
+					if (!g_is_uninstall_finish)
 					{
-						DrawButtonText(*pDC, strText, 0, BUTTON_DISABLE, g_tb_button_close_hwnd);
-					}
-					else if(lpDrawItemStruct->itemState & ODS_SELECTED
-						|| (g_tb_button_close.m_b_ishover && g_tb_button_close.m_b_isclicked))
-					{
-						DrawButtonText(*pDC, strText, 1, BUTTON_CLICK, g_tb_button_close_hwnd);
-					}
-					else if(g_tb_button_close.m_b_ishover)
-					{
-						DrawButtonText(*pDC, strText, 0, BUTTON_HOVER, g_tb_button_close_hwnd);
+						Gdiplus::Graphics g(lpDrawItemStruct->hDC);
+
+						Gdiplus::Rect dst_rect(
+							g_finish_button_crect.left + 1,
+							g_finish_button_crect.top + 1,
+							g_finish_button_crect.Width() - 2,
+							g_finish_button_crect.Height() - 2
+							);
+
+						int src_width = g_pinstall_image->GetWidth();
+						int src_height = g_pinstall_image->GetHeight() / 3;
+
+						if (lpDrawItemStruct->itemState & ODS_SELECTED)
+						{
+							g.DrawImage(g_pinstall_image, dst_rect,
+								0, src_height * 2, src_width, src_height,
+								Gdiplus::UnitPixel);
+						}
+						else if (g_ishover)
+						{
+							g.DrawImage(g_pinstall_image, dst_rect,
+								0, src_height * 1, src_width, src_height,
+								Gdiplus::UnitPixel);
+						}
+						else
+						{
+							g.DrawImage(g_pinstall_image, dst_rect,
+								0, src_height * 0, src_width, src_height,
+								Gdiplus::UnitPixel);
+						}
 					}
 					else
 					{
-						DrawButtonText(*pDC, strText, 0, BUTTON_NORMAL, g_tb_button_close_hwnd);
+						CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
+						int nSaveDC = pDC->SaveDC();
+						pDC->SelectObject(&g_brush.m_brush_normal);
+						pDC->SelectObject(&g_brush.m_pen);
+						pDC->SelectObject(&g_brush.m_font);
+						if (lpDrawItemStruct->itemState & ODS_SELECTED)
+						{
+							// need called before call RoundRect
+							pDC->SelectObject(&g_brush.m_brush_click);
+						}
+
+						CRect rect = lpDrawItemStruct->rcItem;
+						/*pDC->RoundRect(0, 0, rect.right, rect.bottom, rect.Width() / 3, rect.Height());*/
+
+						Gdiplus::Graphics g(lpDrawItemStruct->hDC);
+						Gdiplus::Rect gdi_rect(0, 0, rect.Width(), rect.Height());
+						Gdiplus::Color gdi_color(255, 0, 173, 239);
+						g.SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
+						DrawPathRoundRect(&g, gdi_rect, gdi_color, rect.Height() / 2, 1);
+						FillPathRoundRect(&g, gdi_rect, gdi_color, rect.Height() / 2);
+
+						pDC->SetBkMode(TRANSPARENT);
+						TCHAR button_text[MAX_PATH] = {0};
+						GetWindowText(g_finish_button_hwnd, button_text, MAX_PATH);
+						pDC->SetTextColor(RGB(255, 255, 255));
+						pDC->DrawText(button_text, rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+						pDC->RestoreDC(nSaveDC);
 					}
 				}
+				break;
 			}
 		}
 		break;
 	}
 
-	return CallNextHookEx(g_hhook2, nCode, wParam, lParam);
+	return CallNextHookEx(g_hhook_wnd, nCode, wParam, lParam);
 }
 
 LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -425,53 +293,95 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 	switch (p->message)
 	{
-	case WM_MOUSEHOVER:
-		if (g_hwnd_btn1 == p->hwnd)
+		case WM_MOUSEHOVER:
 		{
-			hDC = ::GetDC(g_hwnd_btn1);
-			swprintf_s(sz, L"WM_MOUSEHOVER, g_hwnd_btn: %x, hDC: %x, point: %d, %d",
-				g_hwnd_btn1, hDC, GET_X_LPARAM(p->lParam), GET_Y_LPARAM(p->lParam));
-			OutputDebugString(sz);
+			if (g_finish_button_hwnd == p->hwnd)
+			{
+				if (!g_is_uninstall_finish)
+				{
+					g_ishover = true;
+					g_bmouseleave_once = false;
 
-			CDC* pDC = CDC::FromHandle(hDC);
-			pDC->SelectObject(&g_brush.m_brush_hover);
-			pDC->SelectObject(&g_brush.m_pen);
-			pDC->SelectObject(&g_brush.m_font);
-			GetClientRect(g_hwnd_btn1, &rect);
-			pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
-				rect.bottom - rect.top);
+					InvalidateRect(g_finish_button_hwnd, &g_finish_button_crect, TRUE);
+				}
+				else
+				{
+					hDC = ::GetDC(g_finish_button_hwnd);
+					swprintf_s(sz, L"WM_MOUSEHOVER, g_hwnd_btn: %x, hDC: %x, point: %d, %d",
+						g_finish_button_hwnd, hDC, GET_X_LPARAM(p->lParam), GET_Y_LPARAM(p->lParam));
+					OutputDebugString(sz);
 
-			pDC->SetBkMode(TRANSPARENT);
-			TCHAR button_text[MAX_PATH] = {0};
-			GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
-			pDC->SetTextColor(RGB(255, 255, 255));
-			pDC->DrawText(button_text, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+					CDC* pDC = CDC::FromHandle(hDC);
+					pDC->SelectObject(&g_brush.m_brush_hover);
+					pDC->SelectObject(&g_brush.m_pen);
+					pDC->SelectObject(&g_brush.m_font);
+					GetClientRect(g_finish_button_hwnd, &rect);
+					/*pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
+						rect.bottom - rect.top);*/
 
-			ReleaseDC(g_hwnd_btn1, hDC);
+					Gdiplus::Graphics g(hDC);
+					Gdiplus::Rect gdi_rect(0, 0, rect.right - rect.left, rect.bottom - rect.top);
+					Gdiplus::Color gdi_color(255, 4, 165, 227);
+					g.SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
+					DrawPathRoundRect(&g, gdi_rect, gdi_color, (rect.bottom - rect.top) / 2, 1);
+					FillPathRoundRect(&g, gdi_rect, gdi_color, (rect.bottom - rect.top) / 2);
+
+					pDC->SetBkMode(TRANSPARENT);
+					TCHAR button_text[MAX_PATH] = {0};
+					GetWindowText(g_finish_button_hwnd, button_text, MAX_PATH);
+					pDC->SetTextColor(RGB(255, 255, 255));
+					pDC->DrawText(button_text, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+					ReleaseDC(g_finish_button_hwnd, hDC);
+				}
+			}
 		}
 		break;
 	case WM_MOUSELEAVE:
-		if (g_hwnd_btn1 == p->hwnd)
 		{
-			// OutputDebugString(L"WM_MOUSELEAVE");
-			hDC = ::GetDC(g_hwnd_btn1);
+			if (g_finish_button_hwnd == p->hwnd)
+			{
+				if (!g_is_uninstall_finish)
+				{
+					g_ishover = false;
+					if (!g_bmouseleave_once)
+					{
+						g_bmouseleave_once = true;
 
-			CDC* pDC = CDC::FromHandle(hDC);
-			pDC->SelectObject(&g_brush.m_brush_normal);
-			pDC->SelectObject(&g_brush.m_pen);
-			pDC->SelectObject(&g_brush.m_font);
-			GetClientRect(g_hwnd_btn1, &rect);
-			pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
-				rect.bottom - rect.top);
+						InvalidateRect(g_finish_button_hwnd, &g_finish_button_crect, TRUE);
+					}
+					g_bmousetrack = TRUE;
+				}
+				else
+				{
+					// OutputDebugString(L"WM_MOUSELEAVE");
+					hDC = ::GetDC(g_finish_button_hwnd);
 
-			pDC->SetBkMode(TRANSPARENT);
-			TCHAR button_text[MAX_PATH] = {0};
-			GetWindowText(g_hwnd_btn1, button_text, MAX_PATH);
-			pDC->SetTextColor(RGB(255, 255, 255));
-			pDC->DrawText(button_text, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+					CDC* pDC = CDC::FromHandle(hDC);
+					pDC->SelectObject(&g_brush.m_brush_normal);
+					pDC->SelectObject(&g_brush.m_pen);
+					pDC->SelectObject(&g_brush.m_font);
+					GetClientRect(g_finish_button_hwnd, &rect);
+					/*pDC->RoundRect(0, 0, rect.right, rect.bottom, (rect.right - rect.left) / 2,
+						rect.bottom - rect.top);*/
 
-			g_bmousetrack = TRUE;
-			ReleaseDC(g_hwnd_btn1, hDC);
+					Gdiplus::Graphics g(hDC);
+					Gdiplus::Rect gdi_rect(0, 0, rect.right - rect.left, rect.bottom - rect.top);
+					Gdiplus::Color gdi_color(255, 0, 173, 239);
+					g.SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
+					DrawPathRoundRect(&g, gdi_rect, gdi_color, (rect.bottom - rect.top) / 2, 1);
+					FillPathRoundRect(&g, gdi_rect, gdi_color, (rect.bottom - rect.top) / 2);
+
+					pDC->SetBkMode(TRANSPARENT);
+					TCHAR button_text[MAX_PATH] = {0};
+					GetWindowText(g_finish_button_hwnd, button_text, MAX_PATH);
+					pDC->SetTextColor(RGB(255, 255, 255));
+					pDC->DrawText(button_text, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+					g_bmousetrack = TRUE;
+					ReleaseDC(g_finish_button_hwnd, hDC);
+				}
+			}
 		}
 		break;
 	case WM_MOUSEMOVE:
@@ -480,7 +390,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 			TRACKMOUSEEVENT csTME;
 			csTME.cbSize = sizeof(csTME);
 			csTME.dwFlags = TME_LEAVE | TME_HOVER;
-			csTME.hwndTrack = g_hwnd_btn1;
+			csTME.hwndTrack = g_finish_button_hwnd;
 			csTME.dwHoverTime = 10/*HOVER_DEFAULT*/;
 			::_TrackMouseEvent(&csTME);
 			g_bmousetrack = FALSE;
@@ -488,76 +398,55 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_PAINT:
 		{
-			HDC hdc = ::GetDC(g_hwnd);
-			CDC	*pDC = CDC::FromHandle(hdc);
-
-			RECT rect;
-			GetClientRect(g_hwnd, &rect);
-
-			// outside of window border
-			CPen *old_pen = NULL;
-			CPen new_pen1(PS_SOLID, 1, RGB(27, 147, 186));
-			old_pen = pDC->SelectObject(&new_pen1);
-
-			pDC->MoveTo(rect.left, CORNER_SIZE);
-			pDC->LineTo(CORNER_SIZE, rect.top);
-			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.top);
-			pDC->LineTo(rect.right - 1, CORNER_SIZE);
-			pDC->LineTo(rect.right - 1, rect.bottom - CORNER_SIZE - 1);
-			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.bottom - 1);
-			pDC->LineTo(CORNER_SIZE, rect.bottom - 1);
-			pDC->LineTo(rect.left, rect.bottom - CORNER_SIZE - 1);
-			pDC->LineTo(rect.left, CORNER_SIZE);
-
-			// fill in gaps
-			pDC->MoveTo(rect.left + 1, CORNER_SIZE);
-			pDC->LineTo(CORNER_SIZE + 1, rect.top);
-			pDC->MoveTo(rect.right - CORNER_SIZE - 1, rect.top + 1);
-			pDC->LineTo(rect.right - 1, CORNER_SIZE + 1);
-			pDC->MoveTo(rect.right - 2, rect.bottom - CORNER_SIZE - 1);
-			pDC->LineTo(rect.right - CORNER_SIZE - 1, rect.bottom - 1);
-			pDC->MoveTo(CORNER_SIZE, rect.bottom - 2);
-			pDC->LineTo(rect.left, rect.bottom - CORNER_SIZE - 2);
-
-			pDC->SelectObject(old_pen);
-
-			// inside of window border
-			CPen new_pen2(PS_SOLID, 1, RGB(196, 234, 247));
-			old_pen = pDC->SelectObject(&new_pen2);
-
-			pDC->MoveTo(rect.left + 1, CORNER_SIZE + 1);
-			pDC->LineTo(CORNER_SIZE + 1, rect.top + 1);
-			pDC->LineTo(rect.right - CORNER_SIZE - 2, rect.top + 1);
-			pDC->LineTo(rect.right - 2, CORNER_SIZE + 1);
-			pDC->LineTo(rect.right - 2, rect.bottom - CORNER_SIZE - 2);
-			pDC->LineTo(rect.right - CORNER_SIZE - 2, rect.bottom - 2);
-			pDC->LineTo(CORNER_SIZE + 1, rect.bottom - 2);
-			pDC->LineTo(rect.left + 1, rect.bottom - CORNER_SIZE - 2);
-			pDC->LineTo(rect.left + 1, CORNER_SIZE + 1);
-
-			// draw banner image
+			OutputDebugString(L"WH_GETMESSAGE WM_PAINT");
 			HWND banner_image_hwnd = GetDlgItem(g_hwnd, 0xffffffff);
 			if (banner_image_hwnd && p->hwnd == banner_image_hwnd)
 			{
 				hDC = BeginPaint(p->hwnd, &ps);
 
-				RECT client_rect;
-				GetClientRect(g_hwnd, &client_rect);
-				DWORD banner_width = client_rect.right - client_rect.left;
+				HWND banner_image_hwnd = GetDlgItem(g_hwnd, 0xffffffff);
+				_stprintf_s(sz, L"banner_image_hwnd: %x", banner_image_hwnd);
+				OutputDebugString(sz);
 
-				MoveWindow(banner_image_hwnd,
-					client_rect.left,
-					client_rect.top,
-					banner_width,
-					(int)(banner_width / 2.424),
-					TRUE);
+				if (banner_image_hwnd)
+				{
+					RECT client_rect;
+					GetClientRect(g_hwnd, &client_rect);
+					_stprintf_s(sz, L"client_rect: %d, %d, %d, %d", client_rect.left, client_rect.top,
+						client_rect.right, client_rect.bottom);
+					OutputDebugString(sz);
+
+					if (!g_is_uninstall_finish)
+					{
+						MoveWindow(banner_image_hwnd,
+							client_rect.left,
+							client_rect.top,
+							client_rect.right - client_rect.left,
+							client_rect.bottom - client_rect.top,
+							TRUE);
+					}
+					else
+					{
+						DWORD banner_pic_width = client_rect.right - client_rect.left;
+						MoveWindow(banner_image_hwnd, client_rect.left, client_rect.top,
+							banner_pic_width, (int)(banner_pic_width / 2.424), TRUE);
+					}
+				}
 
 				HDC banner_image_hdc = GetDC(banner_image_hwnd);
 				RECT banner_image_rect;
 				GetClientRect(banner_image_hwnd, &banner_image_rect);
 
 				CImage banner_image;
-				banner_image.Load(L"E:\\is_pictures\\banner.bmp");
+				if (!g_is_uninstall_finish)
+				{
+					banner_image.Load(g_pictures_dir + L"\\background_finish.jpg");
+				}
+				else
+				{
+					banner_image.Load(g_pictures_dir + L"\\banner.bmp");
+				}
+
 				banner_image.Draw(banner_image_hdc, banner_image_rect);
 				ReleaseDC(banner_image_hwnd, banner_image_hdc);
 
@@ -566,14 +455,146 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_LBUTTONDOWN:
-		if (g_hwnd == p->hwnd)
 		{
-			PostMessage(p->hwnd, WM_NCLBUTTONDOWN, HTCAPTION, p->lParam);
+			if (g_hwnd == p->hwnd)
+			{
+				PostMessage(p->hwnd, WM_NCLBUTTONDOWN, HTCAPTION, p->lParam);
+			}
 		}
 		break;
 	}
 
-	return CallNextHookEx(g_hhook3, nCode, wParam, lParam);
+	return CallNextHookEx(g_hhook_msg, nCode, wParam, lParam);
+}
+
+LRESULT CALLBACK CallWndRetProc(
+	_In_ int    nCode,
+	_In_ WPARAM wParam,
+	_In_ LPARAM lParam
+	)
+{
+	CWPRETSTRUCT *p = (CWPRETSTRUCT *)lParam;
+	TCHAR sz[MAX_PATH] = {0};
+
+	switch (p->message)
+	{
+	case WM_INITDIALOG:
+		{
+			if (g_subclassed)
+			{
+				break;
+			}
+			g_subclassed = true;
+
+			Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+			ULONG_PTR gdiplusToken;
+			Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
+			OutputDebugString(L"after hook_ui_finish WM_INITDIALOG");
+			AfxWinInit(GetModuleHandle(L"hook_ui_finish"), NULL, GetCommandLine(), 0);
+
+			HWND hwnd = FindWindow(NULL, TARGET_TITLE);
+			if (NULL == hwnd)
+			{
+				OutputDebugString(L"find window error");
+				break;
+			}
+
+			g_hwnd = hwnd;
+
+			HWND hwnd_btn = ::GetDlgItem(hwnd, 0x1);
+			if (NULL == hwnd_btn)
+				break;
+
+			g_finish_button_hwnd = hwnd_btn;
+
+			long lstyle = GetWindowLong(g_finish_button_hwnd, GWL_STYLE);
+			lstyle |= BS_OWNERDRAW;
+			SetWindowLong(g_finish_button_hwnd, GWL_STYLE, lstyle);
+
+			DWORD dwStyle = GetWindowLong(hwnd, GWL_STYLE);
+			DWORD dwNewStyle = WS_OVERLAPPED
+				| WS_VISIBLE
+				| WS_SYSMENU
+				| WS_MINIMIZEBOX
+				| WS_MAXIMIZEBOX
+				| WS_CLIPCHILDREN
+				| WS_CLIPSIBLINGS;
+			dwNewStyle &= dwStyle; // & will remove style
+			SetWindowLong(hwnd, GWL_STYLE, dwNewStyle);
+
+			DWORD dwExStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+			DWORD dwNewExStyle = WS_EX_LEFT | WS_EX_LTRREADING | WS_EX_RIGHTSCROLLBAR;
+			dwNewExStyle &= dwExStyle;
+			SetWindowLong(hwnd, GWL_EXSTYLE, dwNewExStyle);
+
+			SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+
+			// after hook this control need to be painted just once
+			RECT temp_rect;
+			GetClientRect(g_finish_button_hwnd, &temp_rect);
+			InvalidateRect(g_finish_button_hwnd, &temp_rect, TRUE);
+
+			g_finish_button_crect = temp_rect;
+
+			if (g_finish_button_crect.Width() == g_finish_button_crect.Height())
+			{
+				OutputDebugString(L"installation finish");
+				g_is_uninstall_finish = false;
+			}
+			else
+			{
+				OutputDebugString(L"uninstallation finish");
+				g_is_uninstall_finish = true;
+			}
+
+			HWND banner_image_hwnd = GetDlgItem(g_hwnd, 0xffffffff);
+			_stprintf_s(sz, L"banner_image_hwnd: %x", banner_image_hwnd);
+			OutputDebugString(sz);
+
+			if (banner_image_hwnd)
+			{
+				RECT client_rect;
+				GetClientRect(g_hwnd, &client_rect);
+				_stprintf_s(sz, L"client_rect: %d, %d, %d, %d", client_rect.left, client_rect.top,
+					client_rect.right, client_rect.bottom);
+				OutputDebugString(sz);
+
+				if (!g_is_uninstall_finish)
+				{
+					MoveWindow(banner_image_hwnd,
+						client_rect.left,
+						client_rect.top,
+						client_rect.right - client_rect.left,
+						client_rect.bottom - client_rect.top,
+						TRUE);
+				}
+				else
+				{
+					DWORD banner_pic_width = client_rect.right - client_rect.left;
+					MoveWindow(banner_image_hwnd, client_rect.left, client_rect.top,
+						banner_pic_width, (int)(banner_pic_width / 2.424), TRUE);
+				}
+			}
+
+			TCHAR temp_dir[MAX_PATH] = {0};
+			if (0 == GetEnvironmentVariable(L"TEMP", temp_dir, MAX_PATH))
+			{
+				printf("GetEnvironmentVariable failed: %d\n", GetLastError());
+			}
+			g_pictures_dir = temp_dir;
+			g_pictures_dir += L"\\is_pictures";
+
+			g_pinstall_image = Gdiplus::Bitmap::FromFile(g_pictures_dir + L"\\finish_button.png");
+
+			g_old_proc = (WNDPROC)SetWindowLong(hwnd, GWL_WNDPROC, (LONG)new_proc);
+
+			/*SkinH_Attach();*/
+			break;
+		}
+	}
+
+	return CallNextHookEx(g_hhook_wnd_ret, nCode, wParam, lParam);
 }
 
 extern "C" __declspec(dllexport) void BegFinishHook(HWND hwnd)
@@ -586,19 +607,19 @@ extern "C" __declspec(dllexport) void BegFinishHook(HWND hwnd)
 	}
 
 	g_hinstance = GetModuleHandle(L"hook_ui_finish.dll");
-	g_hhook1 = SetWindowsHookEx(WH_CALLWNDPROCRET, CallWndRetProc, g_hinstance, tid);
-	g_hhook2 = SetWindowsHookEx(WH_CALLWNDPROC, CallWndProc, g_hinstance, tid);
-	g_hhook3 = SetWindowsHookEx(WH_GETMESSAGE, GetMsgProc, g_hinstance, tid);
+	g_hhook_wnd = SetWindowsHookEx(WH_CALLWNDPROC, CallWndProc, g_hinstance, tid);
+	g_hhook_wnd_ret = SetWindowsHookEx(WH_CALLWNDPROCRET, CallWndRetProc, g_hinstance, tid);
+	g_hhook_msg = SetWindowsHookEx(WH_GETMESSAGE, GetMsgProc, g_hinstance, tid);
 }
 
 extern "C" __declspec(dllexport) void EndFinishHook()
 {
-	if (NULL != g_hhook1)
-		UnhookWindowsHookEx(g_hhook1);
+	if (NULL != g_hhook_wnd)
+		UnhookWindowsHookEx(g_hhook_wnd);
 
-	if (NULL != g_hhook2)
-		UnhookWindowsHookEx(g_hhook2);
+	if (NULL != g_hhook_wnd_ret)
+		UnhookWindowsHookEx(g_hhook_wnd_ret);
 
-	if (NULL != g_hhook3)
-		UnhookWindowsHookEx(g_hhook3);
+	if (NULL != g_hhook_msg)
+		UnhookWindowsHookEx(g_hhook_msg);
 }
