@@ -515,8 +515,6 @@ LRESULT CALLBACK CallWndRetProc(
 			g_pbanner_image = Gdiplus::Bitmap::FromFile(g_pictures_dir + L"\\background_custom.jpg");
 
 			g_old_proc = (WNDPROC)SetWindowLong(hwnd, GWL_WNDPROC, (LONG)new_proc);
-
-			/*SkinH_Attach();*/
 		}
 		break;
 	}

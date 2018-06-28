@@ -2,9 +2,8 @@
 //
 
 #include "stdafx.h"
-#include "hook_ui_welcome.h"
-#include "transparent_button.h"
 #include <atlimage.h>
+#include "hook_ui_welcome.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -660,11 +659,8 @@ LRESULT CALLBACK CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 			}
 
 			g_old_proc = (WNDPROC)SetWindowLong(hwnd, GWL_WNDPROC, (LONG)new_proc);
-
-			/*SkinH_Attach();*/
-
-			break;
 		}
+		break;
 	}
 
 	return CallNextHookEx(g_hhook_wnd_ret, nCode, wParam, lParam);

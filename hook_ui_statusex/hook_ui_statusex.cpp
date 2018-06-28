@@ -602,13 +602,10 @@ LRESULT CALLBACK CallWndRetProc(
 
 			g_old_proc = (WNDPROC)SetWindowLong(hwnd, GWL_WNDPROC, (LONG)new_proc);
 
-			/*SkinH_Attach();*/
-
 			HANDLE h = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)thread_bbrd_proc, NULL, 0, NULL);
 			CloseHandle(h);
-
-			break;
 		}
+		break;
 	}
 
 	return CallNextHookEx(g_hhook_wnd_ret, nCode, wParam, lParam);

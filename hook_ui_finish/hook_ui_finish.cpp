@@ -588,10 +588,8 @@ LRESULT CALLBACK CallWndRetProc(
 			g_pinstall_image = Gdiplus::Bitmap::FromFile(g_pictures_dir + L"\\finish_button.png");
 
 			g_old_proc = (WNDPROC)SetWindowLong(hwnd, GWL_WNDPROC, (LONG)new_proc);
-
-			/*SkinH_Attach();*/
-			break;
 		}
+		break;
 	}
 
 	return CallNextHookEx(g_hhook_wnd_ret, nCode, wParam, lParam);
